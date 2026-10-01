@@ -14,12 +14,14 @@
 
 import type { Heading, TocContextValue } from '@lib/toc';
 import { useMemo } from 'react';
-import { useActiveHeading } from './useActiveHeading';
 import { useExpandedState } from './useExpandedState';
 import { useHeadingClickHandler } from './useHeadingClickHandler';
 import { useHeadingTree } from './useHeadingTree';
+import { type ReadingProgress, useReadingProgress } from './useReadingProgress';
 
 export interface UseTocControllerOptions {
+  /** Track reading position only while the consuming navigation is visible. */
+  enabled?: boolean;
   /** Offset from top of viewport for detecting the active heading */
   offsetTop?: number;
   /** Whether headings should be expanded by default */
@@ -31,18 +33,21 @@ export interface UseTocControllerReturn {
   headings: Heading[];
   /** Context value for the heading tree components */
   toc: TocContextValue;
+  subscribeFrame: ReadingProgress['subscribeFrame'];
 }
 
 export function useTocController({
+  enabled = true,
   offsetTop = 120,
   defaultExpanded = false,
 }: UseTocControllerOptions = {}): UseTocControllerReturn {
   const headings = useHeadingTree();
-  const activeId = useActiveHeading({ offsetTop });
+  const { flat, activeIndex, subscribeFrame } = useReadingProgress(headings, offsetTop, enabled);
+  const activeId = flat[activeIndex]?.id ?? '';
   const { expandedIds, revealTo } = useExpandedState({ headings, activeId, defaultExpanded });
   const onHeadingClick = useHeadingClickHandler({ revealTo });
 
   const toc = useMemo(() => ({ activeId, expandedIds, onHeadingClick }), [activeId, expandedIds, onHeadingClick]);
 
-  return { headings, toc };
+  return { headings, toc, subscribeFrame };
 }

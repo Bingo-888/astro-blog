@@ -52,3 +52,20 @@ const { post, siderType, isPostPage } = Astro.props;
   <AnnouncementProvider />
   <CodePenEmbed />
 </div>
+
+<script>
+  import { motionConfig } from '@constants/site-config';
+  import { setupArrivalRender } from '@lib/arrival-render';
+  import { setupHeaderContinuity } from '@lib/header-continuity';
+  import { setupMorphTransitions } from '@lib/morph-transitions';
+  import { setupPetalBurst } from '@lib/sakura/petal-burst';
+  import { setupScrollReveal } from '@lib/scroll-reveal';
+  import { setupScrollbarActivity } from '@lib/scrollbar-activity';
+
+  setupMorphTransitions();
+  setupHeaderContinuity();
+  setupArrivalRender();
+  setupScrollReveal();
+  setupScrollbarActivity();
+  if (motionConfig.clickBurst) setupPetalBurst();
+</script>

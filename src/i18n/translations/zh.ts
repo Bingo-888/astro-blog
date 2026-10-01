@@ -86,7 +86,6 @@ export const uiStrings = {
   'search.suggestion': '没有找到结果。尝试以下搜索：',
   'search.searching': '搜索 [SEARCH_TERM]...',
   'search.dialogTitle': '搜索文章',
-  'search.dialogHint': '输入关键词搜索博客文章',
   'search.dialogClose': '关闭',
   'search.dialogSelect': '选择',
   'search.dialogOpen': '打开',
@@ -135,6 +134,8 @@ export const uiStrings = {
   'diagram.resetZoom': '重置缩放',
   'diagram.fitToScreen': '适应屏幕',
   'diagram.download': '下载图片',
+  'diagram.resize': '调整图表大小',
+  'diagram.resizeHint': '拖动调整大小，双击还原',
 
   // ── Image Lightbox ──────────────────────────────────────────
   'image.zoomIn': '放大',
@@ -182,6 +183,7 @@ export const uiStrings = {
   'stats.pageviews': '访问量',
 
   // ── Pagination ──────────────────────────────────────────────
+  'pagination.label': '分页',
   'pagination.prev': '上一页',
   'pagination.next': '下一页',
   'pagination.page': '第 {page} 页',
@@ -235,10 +237,17 @@ export const uiStrings = {
   'settings.scrollProgress': '滚动进度条',
   'settings.christmas': '圣诞特效',
   'settings.bgmWidget': '背景音乐控件',
-  'settings.masterMotion': '减弱动画',
+  'settings.motionLevel': '动效强度',
+  'settings.motionLevel.lively': '灵动',
+  'settings.motionLevel.subtle': '克制',
+  'settings.motionLevel.reduced': '减弱',
+  'settings.motionLevel.livelyHint': '入场编排、滚动浮现与樱花特效全开',
+  'settings.motionLevel.subtleHint': '保留入场与过渡，关闭正文浮现和樱花特效',
+  'settings.motionLevel.reducedHint': '只保留必要的交互反馈',
+  'settings.motionLevel.systemReduced': '系统已开启「减少动态效果」，将始终按「减弱」处理',
   'settings.wave': '封面海浪',
   'settings.reset': '重置为默认',
-  'settings.waveDisabledByMasterMotion': '「减弱动画」开启时不可用',
+  'settings.waveDisabledByReducedMotion': '动效强度为「减弱」时不可用',
   'settings.invalidNumber': '请输入正数',
 
   // ── Announcement ────────────────────────────────────────────
@@ -344,6 +353,7 @@ export const uiStrings = {
 
   // ── Table of Contents ───────────────────────────────────────
   'toc.title': '文章目录',
+  'toc.sectionProgress': '本节阅读进度',
   'toc.expand': '展开目录',
   'toc.empty': '暂无目录',
 

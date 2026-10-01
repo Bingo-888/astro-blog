@@ -2,73 +2,80 @@ import Popover from '@components/ui/popover';
 import type { Router } from '@constants/router';
 import { Icon } from '@iconify/react';
 import { cn } from '@lib/utils';
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { defaultLocale, localizedPath, resolveNavName, stripLocaleFromPath, t } from '@/i18n';
+import { NavMenu, type NavMenuItem } from './NavMenu';
 
 interface DropdownNavProps {
   item: Router;
   currentPath: string;
   className?: string;
   locale?: string;
+  /** `data-glide-key` the header's sliding pill targets. */
+  glideKey?: string;
+  onIntent?: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-const DropdownNavComponent = ({ item, currentPath, className, locale = defaultLocale }: DropdownNavProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+const DropdownNavComponent = ({
+  item,
+  currentPath,
+  className,
+  locale = defaultLocale,
+  glideKey,
+  onIntent,
+  open,
+  onOpenChange,
+}: DropdownNavProps) => {
   const { icon, children } = item;
   const name = resolveNavName(item.nameKey, item.name, locale);
 
   const strippedPath = stripLocaleFromPath(currentPath);
 
-  const renderDropdownContent = useCallback(
-    () => (
-      <div className="nav-dropdown flex flex-col">
-        {children?.length
-          ? children.map((child: Router, index) => {
-              const childName = resolveNavName(child.nameKey, child.name, locale);
-              const childUrl = child.path
-                ? child.localeIndependent
-                  ? child.path
-                  : localizedPath(child.path, locale)
-                : child.path;
-              return (
-                <a
-                  key={child.path}
-                  href={childUrl}
-                  className={cn(
-                    'group px-4 py-2 text-base outline-hidden transition-colors duration-300 hover:bg-gradient-shoka-button',
-                    {
-                      'rounded-ss-2xl': index === 0,
-                      'rounded-ee-2xl': index === children.length - 1,
-                      'bg-gradient-shoka-button text-muted': strippedPath === child.path,
-                    },
-                  )}
-                >
-                  <div className="flex items-center gap-2 text-white transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-white">
-                    {child.icon && <Icon icon={child.icon} className="size-4" />}
-                    {childName}
-                  </div>
-                </a>
-              );
-            })
-          : null}
-      </div>
-    ),
+  const menuItems = useMemo<NavMenuItem[]>(
+    () =>
+      (children ?? []).flatMap((child) =>
+        child.path
+          ? [
+              {
+                key: child.path,
+                href: child.localeIndependent ? child.path : localizedPath(child.path, locale),
+                label: resolveNavName(child.nameKey, child.name, locale),
+                icon: child.icon,
+                current: strippedPath === child.path,
+              },
+            ]
+          : [],
+      ),
     [children, strippedPath, locale],
   );
 
+  // Picking an item closes the menu first: the Navigator persists across the page swap, and an open
+  // menu would stay open in a portal left behind on the old page.
+  const renderDropdownContent = useCallback(
+    ({ close }: { close: () => void }) => <NavMenu items={menuItems} onSelect={close} />,
+    [menuItems],
+  );
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen} placement="bottom-start" trigger="hover" render={renderDropdownContent}>
+    <Popover
+      open={open}
+      onOpenChange={onOpenChange}
+      placement="bottom-start"
+      trigger="hover"
+      render={renderDropdownContent}
+      className="nav-popover"
+    >
       <button
         type="button"
-        className={cn(
-          'inline-flex h-10 items-center px-4 py-2 text-base tracking-wider',
-          'relative after:absolute after:bottom-1 after:left-1/2 after:h-0.5 after:w-0',
-          'after:-translate-x-1/2 after:bg-white after:transition-all after:duration-300 after:content-[""]',
-          className,
-        )}
-        aria-expanded={isOpen}
+        className={cn('relative inline-flex h-10 items-center py-2 pr-5 pl-3 text-base tracking-wider', className)}
+        aria-expanded={open}
         aria-haspopup="true"
         aria-label={t(locale, 'common.menuLabel', { name })}
+        data-glide-key={glideKey}
+        onPointerEnter={onIntent}
+        onFocus={onIntent}
       >
         {icon && (
           <span className="mr-1.5 inline-flex h-4 w-4 shrink-0 items-center justify-center">
@@ -78,8 +85,8 @@ const DropdownNavComponent = ({ item, currentPath, className, locale = defaultLo
         {name}
         <Icon
           icon="ri:arrow-drop-down-fill"
-          className={cn('absolute -right-1.5 size-6 transition-transform duration-300', {
-            'rotate-180': isOpen,
+          className={cn('absolute right-0 size-6 transition-transform duration-300 ease-out-expo', {
+            'rotate-180': open,
           })}
         />
       </button>
