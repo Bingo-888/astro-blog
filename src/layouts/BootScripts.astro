@@ -7,7 +7,8 @@
  * head parsing. Treat them as frozen: any deferral or refactor reintroduces FOUC.
  */
 
-import { christmasConfig } from '@constants/site-config';
+import { christmasConfig, motionConfig } from '@constants/site-config';
+import { MOTION_LEVELS } from '@lib/config/motion';
 import {
   FONT_PRESETS,
   GENERAL_DEFAULTS,
@@ -31,8 +32,8 @@ import {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
 
-    function applyTheme(theme) {
-      var root = document.documentElement;
+    function applyTheme(theme, target) {
+      var root = target || document.documentElement;
       root.classList.toggle('dark', theme === 'dark');
       root.dataset.theme = theme; // For astro-mermaid autoTheme
     }
@@ -46,6 +47,11 @@ import {
       if (!('theme' in localStorage)) {
         applyTheme(getTheme());
       }
+    });
+
+    // 先写进新页面的 <html>：swap 会清空根元素属性，期间若有样式计算（如恢复持久化元素的焦点）也能拿到正确主题
+    document.addEventListener('astro:before-swap', function(event) {
+      applyTheme(getTheme(), event.newDocument.documentElement);
     });
 
     // View Transition 切换页面后重新应用主题（在 DOM 渲染前）
@@ -71,7 +77,7 @@ import {
 
 <script
   is:inline
-  define:vars={{ STORAGE_KEYS, READER_DEFAULTS, READER_FONT_FAMILY_MAX_LENGTH, GENERAL_DEFAULTS, FONT_PRESETS, WENKAI_STYLESHEET_ID, WENKAI_STYLESHEET_HREF }}
+  define:vars={{ STORAGE_KEYS, READER_DEFAULTS, READER_FONT_FAMILY_MAX_LENGTH, GENERAL_DEFAULTS, FONT_PRESETS, WENKAI_STYLESHEET_ID, WENKAI_STYLESHEET_HREF, MOTION_LEVELS, MOTION_DEFAULT_LEVEL: motionConfig.level }}
 >
   // Apply settings immediately to prevent a flash of default reader styles.
   // Defaults and keys are injected from src/store/settings-constants.ts (single source of truth).
@@ -87,6 +93,12 @@ import {
     function readBoolean(key, fallback) {
       var stored = localStorage.getItem(key);
       return stored === null ? fallback : stored === 'true';
+    }
+    function readMotionLevel() {
+      var stored = localStorage.getItem(STORAGE_KEYS.motionLevel);
+      if (MOTION_LEVELS.indexOf(stored) !== -1) return stored;
+      if (localStorage.getItem(STORAGE_KEYS.legacyMasterMotion) === 'true') return 'reduced';
+      return MOTION_DEFAULT_LEVEL;
     }
     function quoteFontFamily(family) {
       var serialized = '"';
@@ -104,8 +116,8 @@ import {
       }
       return serialized + '"';
     }
-    function applySettings() {
-      var root = document.documentElement;
+    function applySettings(target) {
+      var root = target || document.documentElement;
       var stored = localStorage.getItem(STORAGE_KEYS.fontPreset);
       var preset = FONT_PRESETS.indexOf(stored) !== -1 ? stored : READER_DEFAULTS.fontPreset;
       root.setAttribute('data-font-preset', preset);
@@ -130,7 +142,9 @@ import {
         root.style.setProperty('--reader-measure', measure * 0.5 * fontSize + 'px');
       }
       root.classList.toggle('reader-justify', readBoolean(STORAGE_KEYS.justify, READER_DEFAULTS.justify));
-      root.classList.toggle('motion-off', readBoolean(STORAGE_KEYS.masterMotion, GENERAL_DEFAULTS.masterMotion));
+      var motionLevel = readMotionLevel();
+      root.dataset.motion = motionLevel;
+      root.classList.toggle('motion-off', motionLevel === 'reduced');
       root.classList.toggle('wave-off', !readBoolean(STORAGE_KEYS.wave, GENERAL_DEFAULTS.wave));
       // Load WenKai only when the matching preset is selected.
       if (preset === 'wenkai' && !fontFamily && !document.getElementById(WENKAI_STYLESHEET_ID)) {
@@ -145,8 +159,16 @@ import {
     // Apply before the first frame.
     applySettings();
 
+    // Write into the incoming <html> as well: the swap clears the root's attributes, and a style pass
+    // during it (e.g. re-focusing a persisted element) must not see the defaults.
+    document.addEventListener('astro:before-swap', function (event) {
+      applySettings(event.newDocument.documentElement);
+    });
+
     // Reapply before Astro renders the swapped page.
-    document.addEventListener('astro:after-swap', applySettings);
+    document.addEventListener('astro:after-swap', function () {
+      applySettings();
+    });
   })();
 </script>
 

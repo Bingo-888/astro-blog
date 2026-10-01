@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildHeadingTree, collectExpandableIds, getSiblingIds, type Heading, revealPath } from './toc';
+import {
+  buildHeadingTree,
+  chapterIndexOf,
+  collectExpandableIds,
+  flattenHeadings,
+  getSiblingIds,
+  type Heading,
+  locateReading,
+  readingLineAt,
+  revealPath,
+  stripRepeatedOrdinal,
+  tocNumberLabel,
+} from './toc';
 
 /**
  * h2 a
@@ -76,9 +88,16 @@ test('revealPath is idempotent and preserves reference identity', () => {
   assert.equal(second, first);
 });
 
-test('a childless top-level target is a no-op', () => {
+test('a childless top-level target closes the other chapters', () => {
   const headings = tree();
-  const current = new Set(['a', 'a1']);
+  // `a1` sits inside the closed chapter, as with any branch off the touched levels
+  assert.deepEqual(ids(revealPath(headings, 'c', new Set(['a', 'a1']))), ['a1']);
+  assert.deepEqual(ids(revealPath(headings, 'c', new Set(['a', 'b']))), []);
+});
+
+test('a childless top-level target keeps the reference when no chapter is open', () => {
+  const headings = tree();
+  const current = new Set(['a1']);
   assert.equal(revealPath(headings, 'c', current), current);
 });
 
@@ -102,4 +121,93 @@ test('revealPath on an empty tree is a no-op', () => {
 test('collectExpandableIds returns every heading that owns children', () => {
   assert.deepEqual(ids(collectExpandableIds(tree())), ['a', 'a1', 'a2', 'b']);
   assert.equal(collectExpandableIds([]).size, 0);
+});
+
+test('flattenHeadings lists every heading in document order', () => {
+  assert.deepEqual(
+    flattenHeadings(tree()).map((h) => h.id),
+    flat.map((h) => h.id),
+  );
+});
+
+test('chapterIndexOf reports the top-level section of any heading', () => {
+  const headings = tree();
+  assert.equal(chapterIndexOf(headings, 'a'), 1);
+  assert.equal(chapterIndexOf(headings, 'a2x'), 1);
+  assert.equal(chapterIndexOf(headings, 'b1'), 2);
+  assert.equal(chapterIndexOf(headings, 'c'), 3);
+});
+
+test('tocNumberLabel pads chapters and dots subsections', () => {
+  assert.equal(tocNumberLabel([6]), '06');
+  assert.equal(tocNumberLabel([12]), '12');
+  assert.equal(tocNumberLabel([6, 1]), '6.1');
+  assert.equal(tocNumberLabel([2, 3, 4]), '2.3.4');
+  assert.equal(tocNumberLabel([]), '');
+});
+
+test('stripRepeatedOrdinal drops an ordinal that repeats the TOC number', () => {
+  assert.equal(stripRepeatedOrdinal('1. Markdown 插件配置开始弃用', 1), 'Markdown 插件配置开始弃用');
+  assert.equal(stripRepeatedOrdinal('3、总结', 3), '总结');
+  assert.equal(stripRepeatedOrdinal('2) Setup', 2), 'Setup');
+  assert.equal(stripRepeatedOrdinal('4：配置', 4), '配置');
+  assert.equal(stripRepeatedOrdinal(' 1. Intro', 1), 'Intro');
+  assert.equal(stripRepeatedOrdinal('1.总结', 1), '总结');
+  assert.equal(stripRepeatedOrdinal('2．はじめに', 2), 'はじめに');
+});
+
+test('stripRepeatedOrdinal keeps every other leading number', () => {
+  assert.equal(stripRepeatedOrdinal('2. react-tweet', 1), '2. react-tweet');
+  assert.equal(stripRepeatedOrdinal('10. Foo', 1), '10. Foo');
+  assert.equal(stripRepeatedOrdinal('1.5 版本说明', 1), '1.5 版本说明');
+  assert.equal(stripRepeatedOrdinal('1 Password', 1), '1 Password');
+  assert.equal(stripRepeatedOrdinal('1.', 1), '1.');
+  // Versions, file names and times start with a number that is not an ordinal
+  assert.equal(stripRepeatedOrdinal('2.x 迁移指南', 2), '2.x 迁移指南');
+  assert.equal(stripRepeatedOrdinal('3.js 入门', 3), '3.js 入门');
+  assert.equal(stripRepeatedOrdinal('1.Intro', 1), '1.Intro');
+  assert.equal(stripRepeatedOrdinal('2:30 会议', 2), '2:30 会议');
+});
+
+test('chapterIndexOf is 0 for an unknown heading or an empty tree', () => {
+  assert.equal(chapterIndexOf(tree(), 'missing'), 0);
+  assert.equal(chapterIndexOf([], 'a'), 0);
+});
+
+test('readingLineAt rides the offset line until the last screen of scroll', () => {
+  // viewport 800, document scrolls to 3000
+  assert.equal(readingLineAt(0, 800, 3000, 120), 120);
+  assert.equal(readingLineAt(2200, 800, 3000, 120), 2320);
+});
+
+test('readingLineAt sweeps to the viewport bottom over the last screen', () => {
+  assert.equal(readingLineAt(2600, 800, 3000, 120), 2600 + 120 + 340);
+  assert.equal(readingLineAt(3000, 800, 3000, 120), 3800);
+});
+
+test('readingLineAt treats a page that cannot scroll as fully in view', () => {
+  assert.equal(readingLineAt(0, 800, 0, 120), 800);
+});
+
+const starts = [100, 400, 1000];
+const end = 1600;
+
+test('locateReading is -1 above the first section', () => {
+  assert.deepEqual(locateReading(starts, end, 50), { index: -1, progress: 0 });
+  assert.deepEqual(locateReading([], end, 500), { index: -1, progress: 0 });
+});
+
+test('locateReading reports the fraction of the current section above the line', () => {
+  assert.deepEqual(locateReading(starts, end, 250), { index: 0, progress: 0.5 });
+  assert.deepEqual(locateReading(starts, end, 400), { index: 1, progress: 0 });
+  assert.deepEqual(locateReading(starts, end, 1300), { index: 2, progress: 0.5 });
+});
+
+test('locateReading clamps the last section at the end of the article', () => {
+  assert.deepEqual(locateReading(starts, end, 2000), { index: 2, progress: 1 });
+});
+
+test('locateReading counts an empty section as read', () => {
+  assert.deepEqual(locateReading([100, 100], 300, 100), { index: 1, progress: 0 });
+  assert.deepEqual(locateReading([100], 100, 100), { index: 0, progress: 1 });
 });

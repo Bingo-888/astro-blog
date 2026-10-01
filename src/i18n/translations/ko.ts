@@ -85,7 +85,6 @@ export const uiStrings = {
   'search.suggestion': '결과가 없어요. 다음 검색어를 시도해 보세요:',
   'search.searching': '[SEARCH_TERM] 검색 중...',
   'search.dialogTitle': '게시물 검색',
-  'search.dialogHint': '검색어를 입력하여 블로그 게시물을 검색해 주세요',
   'search.dialogClose': '닫기',
   'search.dialogSelect': '선택',
   'search.dialogOpen': '열기',
@@ -134,6 +133,8 @@ export const uiStrings = {
   'diagram.resetZoom': '확대/축소 초기화',
   'diagram.fitToScreen': '화면에 맞춤',
   'diagram.download': '이미지 다운로드',
+  'diagram.resize': '다이어그램 크기 조절',
+  'diagram.resizeHint': '드래그하여 크기 조절, 더블클릭하여 원래대로',
 
   // ── Image Lightbox ──────────────────────────────────────────
   'image.zoomIn': '확대',
@@ -181,6 +182,7 @@ export const uiStrings = {
   'stats.pageviews': '조회수',
 
   // ── Pagination ──────────────────────────────────────────────
+  'pagination.label': '페이지 이동',
   'pagination.prev': '이전 페이지',
   'pagination.next': '다음 페이지',
   'pagination.page': '{page}페이지',
@@ -236,10 +238,17 @@ export const uiStrings = {
   'settings.scrollProgress': '스크롤 진행 표시줄',
   'settings.christmas': '크리스마스 효과',
   'settings.bgmWidget': '배경 음악 컨트롤',
-  'settings.masterMotion': '애니메이션 줄이기',
+  'settings.motionLevel': '모션 강도',
+  'settings.motionLevel.lively': '생동감',
+  'settings.motionLevel.subtle': '차분하게',
+  'settings.motionLevel.reduced': '줄이기',
+  'settings.motionLevel.livelyHint': '등장 연출, 스크롤 표시, 벚꽃 효과 모두 사용',
+  'settings.motionLevel.subtleHint': '등장과 전환만 유지하고 본문 표시 연출과 벚꽃은 끔',
+  'settings.motionLevel.reducedHint': '꼭 필요한 상호작용 피드백만 표시',
+  'settings.motionLevel.systemReduced': '시스템에서 동작 줄이기가 켜져 있어 항상 「줄이기」로 적용됩니다',
   'settings.wave': '커버 파도 효과',
   'settings.reset': '기본값으로 재설정',
-  'settings.waveDisabledByMasterMotion': '「애니메이션 줄이기」 활성화 시 사용 불가',
+  'settings.waveDisabledByReducedMotion': '모션 강도가 「줄이기」일 때는 사용할 수 없음',
   'settings.invalidNumber': '양수를 입력해 주세요',
 
   // ── Announcement ────────────────────────────────────────────
@@ -345,6 +354,7 @@ export const uiStrings = {
 
   // ── Table of Contents ───────────────────────────────────────
   'toc.title': '목차',
+  'toc.sectionProgress': '현재 절 읽기 진행률',
   'toc.expand': '목차 펼치기',
   'toc.empty': '등록된 목차가 없어요',
 

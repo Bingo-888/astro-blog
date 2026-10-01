@@ -91,10 +91,12 @@ function hasSameMembers(a: Set<string>, b: Set<string>): boolean {
 /**
  * Expanded-set transition that reveals `targetId`: opens every ancestor on its
  * path (plus the target itself when it has children) and collapses the
- * child-bearing siblings at each of those levels — the accordion effect.
+ * child-bearing siblings at each of those levels — the accordion effect. A
+ * childless top-level target opens nothing but still closes the other
+ * chapters, so only the current chapter is ever unfolded.
  *
- * Returns `currentExpanded` unchanged (same reference) when there is nothing to
- * reveal, so React can bail out of the update.
+ * Returns `currentExpanded` unchanged (same reference) when nothing changes,
+ * so React can bail out of the update.
  */
 export function revealPath(headings: Heading[], targetId: string, currentExpanded: Set<string>): Set<string> {
   const target = findHeadingById(headings, targetId);
@@ -102,9 +104,11 @@ export function revealPath(headings: Heading[], targetId: string, currentExpande
 
   const path = getParentIds(target);
   if (target.children.length > 0) path.unshift(target.id);
-  if (path.length === 0) return currentExpanded;
 
   const next = new Set(currentExpanded);
+  if (path.length === 0) {
+    for (const siblingId of getSiblingIds(target, headings)) next.delete(siblingId);
+  }
   for (const id of path) {
     const node = findHeadingById(headings, id);
     if (!node) continue;
@@ -128,4 +132,66 @@ export function collectExpandableIds(headings: Heading[]): Set<string> {
   };
   walk(headings);
   return ids;
+}
+
+/** Every heading in document order */
+export function flattenHeadings(headings: Heading[]): Heading[] {
+  return headings.flatMap((heading) => [heading, ...flattenHeadings(heading.children)]);
+}
+
+/** Number shown beside a TOC entry: "01" for a chapter, "6.1" below it, "" for an unnumbered heading */
+export function tocNumberLabel(numberPath: number[]): string {
+  if (numberPath.length === 0) return '';
+  return numberPath.length === 1 ? String(numberPath[0]).padStart(2, '0') : numberPath.join('.');
+}
+
+/**
+ * Drops a heading's own leading ordinal ("1. ", "2、", "3) ", "1.总结") when it repeats the number
+ * the TOC already shows beside it, so an entry never reads "6.1 1. …". A dot or colon only counts
+ * before a space or CJK text, so "1.5 版本", "2.x 迁移", "3.js" and "2:30" keep their number.
+ */
+export function stripRepeatedOrdinal(text: string, ordinal: number): string {
+  const match = new RegExp(
+    `^\\s*${ordinal}(?:[.．:：](?=\\s|\\p{sc=Han}|\\p{sc=Hiragana}|\\p{sc=Katakana}|\\p{sc=Hangul})|[、)）])\\s*`,
+    'u',
+  ).exec(text);
+  if (!match) return text;
+  const rest = text.slice(match[0].length);
+  return rest.trim() ? rest : text;
+}
+
+/** 1-based position of the top-level section containing `id`, or 0 when the tree has no such heading */
+export function chapterIndexOf(headings: Heading[], id: string): number {
+  return headings.findIndex((heading) => heading.id === id || findHeadingById(heading.children, id) !== null) + 1;
+}
+
+export interface ReadingPosition {
+  /** Index into the section list, -1 while the line is above the first section */
+  index: number;
+  /** Fraction of the current section above the reading line, 0–1 */
+  progress: number;
+}
+
+const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
+
+/**
+ * Document-space y of the reading line. It rides `offsetTop` below the viewport top, then sweeps
+ * down to the viewport bottom over the last screen of scroll: the closing sections of a page may
+ * never reach the offset line, and they should still read to the end.
+ */
+export function readingLineAt(scrollY: number, viewportHeight: number, maxScrollY: number, offsetTop: number): number {
+  const sweep = Math.min(viewportHeight, maxScrollY);
+  const reach = sweep > 0 ? clamp01((scrollY - (maxScrollY - sweep)) / sweep) : 1;
+  return scrollY + offsetTop + reach * (viewportHeight - offsetTop);
+}
+
+/** Locate `line` among consecutive sections that open at `starts` (ascending) and close at `end` */
+export function locateReading(starts: number[], end: number, line: number): ReadingPosition {
+  let index = -1;
+  while (index + 1 < starts.length && starts[index + 1] <= line) index++;
+  if (index < 0) return { index, progress: 0 };
+
+  const start = starts[index];
+  const span = (starts[index + 1] ?? end) - start;
+  return { index, progress: span > 0 ? clamp01((line - start) / span) : 1 };
 }

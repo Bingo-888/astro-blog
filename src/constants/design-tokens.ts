@@ -214,6 +214,10 @@ export const shadows = {
   card: '0 0.625rem 1.875rem rgba(90, 97, 105, 0.12)',
   'card-darker': '0 0.625rem 1.875rem rgba(90, 97, 105, 0.2)',
   'shoka-button': '0px 0px 16px 0px rgb(233, 84, 105, 0.8)',
+
+  // Sakura-tinted elevation for floating controls
+  'sakura-sm': '0 6px 16px -8px rgb(233 84 107 / 0.45), 0 2px 6px -3px rgb(40 20 40 / 0.12)',
+  'sakura-md': '0 10px 24px -10px rgb(233 84 107 / 0.55), 0 3px 8px -4px rgb(40 20 40 / 0.14)',
 } as const;
 
 /**
@@ -250,13 +254,25 @@ export const animation = {
     flipCard: 600, // Card flip animation
   },
 
-  // Easing functions
+  // Easing functions (the kebab-case curves mirror the --ease-* CSS variables in styles/global/motion.css)
   easing: {
     linear: 'linear',
     easeIn: 'cubic-bezier(0.4, 0, 1, 1)',
     easeOut: 'cubic-bezier(0, 0, 0.2, 1)',
     easeInOut: 'cubic-bezier(0.4, 0, 0.2, 1)',
     spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)', // Spring-like easing
+    'out-quart': 'cubic-bezier(0.25, 1, 0.5, 1)',
+    'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
+    'in-quart': 'cubic-bezier(0.5, 0, 0.75, 0)',
+    'in-out-quart': 'cubic-bezier(0.76, 0, 0.24, 1)',
+  },
+
+  // The same curves as Motion `ease` arrays
+  bezier: {
+    outQuart: [0.25, 1, 0.5, 1] as const,
+    outExpo: [0.16, 1, 0.3, 1] as const,
+    inQuart: [0.5, 0, 0.75, 0] as const,
+    inOutQuart: [0.76, 0, 0.24, 1] as const,
   },
 
   // Spring configurations for Motion library
@@ -320,6 +336,43 @@ export const animation = {
       type: 'spring' as const,
       stiffness: 300,
       damping: 20,
+    },
+
+    // Press/release feedback: settles fast with a barely visible rebound
+    press: {
+      type: 'spring' as const,
+      stiffness: 560,
+      damping: 30,
+    },
+
+    // Menus and popovers: quick, settled entrance
+    popover: {
+      type: 'spring' as const,
+      stiffness: 460,
+      damping: 32,
+    },
+
+    // Lightbox zoom out of / back into the page
+    lightbox: {
+      type: 'spring' as const,
+      stiffness: 300,
+      damping: 32,
+      mass: 0.9,
+    },
+
+    // Navigation pill: glides between items without overshoot
+    nav: {
+      type: 'spring' as const,
+      stiffness: 480,
+      damping: 38,
+      mass: 0.9,
+    },
+
+    // Playful pop for lively-level entrances (floating buttons, badges)
+    pop: {
+      type: 'spring' as const,
+      stiffness: 420,
+      damping: 22,
     },
   },
 

@@ -87,7 +87,6 @@ export const uiStrings: UIStrings = {
   'search.suggestion': '検索結果が見つかりません。 こちらの検索をお試しください:',
   'search.searching': '[SEARCH_TERM]を検索中...',
   'search.dialogTitle': '投稿を検索',
-  'search.dialogHint': 'キーワードを入力して投稿を検索します',
   'search.dialogClose': '閉じる',
   'search.dialogSelect': '選択',
   'search.dialogOpen': '開く',
@@ -136,6 +135,8 @@ export const uiStrings: UIStrings = {
   'diagram.resetZoom': 'リセット',
   'diagram.fitToScreen': '画面に合わせる',
   'diagram.download': '画像をダウンロード',
+  'diagram.resize': '図のサイズを変更',
+  'diagram.resizeHint': 'ドラッグでサイズ変更、ダブルクリックで元に戻す',
 
   // ── Lightboxでの画像表示 ──────────────────────────────────────────
   'image.zoomIn': '拡大',
@@ -183,6 +184,7 @@ export const uiStrings: UIStrings = {
   'stats.pageviews': 'ページビュー',
 
   // ── ページ付け ──────────────────────────────────────────────
+  'pagination.label': 'ページ送り',
   'pagination.prev': '前へ',
   'pagination.next': '次へ',
   'pagination.page': 'ページ: {page}',
@@ -238,10 +240,17 @@ export const uiStrings: UIStrings = {
   'settings.scrollProgress': 'スクロール進捗バー',
   'settings.christmas': 'クリスマスエフェクト',
   'settings.bgmWidget': 'BGM ウィジェット',
-  'settings.masterMotion': 'アニメーションを減らす',
+  'settings.motionLevel': 'モーション',
+  'settings.motionLevel.lively': 'いきいき',
+  'settings.motionLevel.subtle': 'ひかえめ',
+  'settings.motionLevel.reduced': '減らす',
+  'settings.motionLevel.livelyHint': '入場演出・スクロール表示・桜エフェクトをすべて有効に',
+  'settings.motionLevel.subtleHint': '入場と遷移のみ。本文の表示演出と桜は無効',
+  'settings.motionLevel.reducedHint': '必要な操作フィードバックのみ',
+  'settings.motionLevel.systemReduced': 'システムで「視差効果を減らす」が有効なため、常に「減らす」として扱います',
   'settings.wave': 'カバーの波',
   'settings.reset': 'デフォルトにリセット',
-  'settings.waveDisabledByMasterMotion': '「アニメーションを減らす」がオンの間は使用できません',
+  'settings.waveDisabledByReducedMotion': 'モーションが「減らす」の間は使用できません',
   'settings.invalidNumber': '正の数を入力してください',
 
   // ── お知らせ ────────────────────────────────────────────
@@ -347,6 +356,7 @@ export const uiStrings: UIStrings = {
 
   // ── 目次のコンテンツ ───────────────────────────────────────
   'toc.title': '目次',
+  'toc.sectionProgress': 'この節の読書進捗',
   'toc.expand': '目次のコンテンツを展開',
   'toc.empty': '見出しはありません',
 

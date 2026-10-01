@@ -87,7 +87,6 @@ export const uiStrings: UIStrings = {
   'search.suggestion': 'No results found. Try searching for:',
   'search.searching': 'Searching [SEARCH_TERM]...',
   'search.dialogTitle': 'Search Posts',
-  'search.dialogHint': 'Type keywords to search blog posts',
   'search.dialogClose': 'Close',
   'search.dialogSelect': 'Select',
   'search.dialogOpen': 'Open',
@@ -136,6 +135,8 @@ export const uiStrings: UIStrings = {
   'diagram.resetZoom': 'Reset zoom',
   'diagram.fitToScreen': 'Fit to screen',
   'diagram.download': 'Download image',
+  'diagram.resize': 'Resize diagram',
+  'diagram.resizeHint': 'Drag to resize, double-click to reset',
 
   // ── Image Lightbox ──────────────────────────────────────────
   'image.zoomIn': 'Zoom in',
@@ -183,6 +184,7 @@ export const uiStrings: UIStrings = {
   'stats.pageviews': 'Page views',
 
   // ── Pagination ──────────────────────────────────────────────
+  'pagination.label': 'Pagination',
   'pagination.prev': 'Previous',
   'pagination.next': 'Next',
   'pagination.page': 'Page {page}',
@@ -237,10 +239,17 @@ export const uiStrings: UIStrings = {
   'settings.scrollProgress': 'Scroll progress bar',
   'settings.christmas': 'Christmas effects',
   'settings.bgmWidget': 'BGM widget',
-  'settings.masterMotion': 'Reduce motion',
+  'settings.motionLevel': 'Motion',
+  'settings.motionLevel.lively': 'Lively',
+  'settings.motionLevel.subtle': 'Subtle',
+  'settings.motionLevel.reduced': 'Reduced',
+  'settings.motionLevel.livelyHint': 'Entrances, scroll reveals and sakura effects',
+  'settings.motionLevel.subtleHint': 'Entrances and transitions only, no reveals or petals',
+  'settings.motionLevel.reducedHint': 'Only essential interaction feedback',
+  'settings.motionLevel.systemReduced': 'Your system asks for reduced motion, so motion stays reduced',
   'settings.wave': 'Cover waves',
   'settings.reset': 'Reset to default',
-  'settings.waveDisabledByMasterMotion': 'Unavailable while "Reduce motion" is on',
+  'settings.waveDisabledByReducedMotion': 'Unavailable while motion is set to "Reduced"',
   'settings.invalidNumber': 'Enter a positive number',
 
   // ── Announcement ────────────────────────────────────────────
@@ -346,6 +355,7 @@ export const uiStrings: UIStrings = {
 
   // ── Table of Contents ───────────────────────────────────────
   'toc.title': 'Table of Contents',
+  'toc.sectionProgress': 'Section reading progress',
   'toc.expand': 'Expand table of contents',
   'toc.empty': 'No headings',
 
