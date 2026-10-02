@@ -12,6 +12,7 @@
 import { LazyMotionProvider } from '@components/common/LazyMotionProvider';
 import { animation } from '@constants/design-tokens';
 import { FloatingFocusManager, FloatingPortal, useDismiss, useFloating, useInteractions, useRole } from '@floating-ui/react';
+import { useIsTablet } from '@hooks/useMediaQuery';
 import { useMotionLevel } from '@hooks/useMotionLevel';
 import { cn } from '@lib/utils';
 import { AnimatePresence, m, type Transition } from 'motion/react';
@@ -19,14 +20,16 @@ import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 
 const PANEL_CLASS =
-  'relative flex h-[80vh] w-[90vw] max-w-6xl flex-col overflow-hidden overscroll-none rounded-xl bg-background shadow-2xl md:max-w-[90vw]';
+  'relative flex h-[80dvh] w-[90vw] max-w-6xl flex-col overflow-hidden overscroll-none rounded-xl bg-background shadow-2xl tablet:h-dvh tablet:w-screen tablet:max-w-none tablet:rounded-none tablet:pt-[env(safe-area-inset-top)] tablet:pr-[env(safe-area-inset-right)] tablet:pb-[env(safe-area-inset-bottom)] tablet:pl-[env(safe-area-inset-left)]';
+
+const SHEET_CLASS = 'tablet:h-auto tablet:max-h-[calc(100dvh-3rem-env(safe-area-inset-top))] tablet:rounded-t-2xl tablet:pt-0';
 
 export interface ModalLayerProps {
   open: boolean;
   onClose: () => void;
-  /** `panel` centers children in an animated card; `fill` gives children the whole viewport layer. */
-  variant?: 'panel' | 'fill';
-  /** Extra classes for the floating element (the card in `panel`, the viewport layer in `fill`). */
+  /** `sheet` uses a content-sized bottom sheet on mobile; `fill` gives children the whole viewport layer. */
+  variant?: 'panel' | 'sheet' | 'fill';
+  /** Extra classes for the floating element (the card in `panel`/`sheet`, the viewport layer in `fill`). */
   className?: string;
   backdropClassName?: string;
   ariaLabel?: string;
@@ -49,6 +52,7 @@ export function ModalLayer({
   children,
 }: ModalLayerProps) {
   const shouldReduceMotion = useMotionLevel() === 'reduced';
+  const isTablet = useIsTablet();
   const backdropRef = useRef<HTMLDivElement>(null);
   const { refs, context } = useFloating({
     open,
@@ -66,7 +70,8 @@ export function ModalLayer({
     return () => document.removeEventListener('astro:before-preparation', onClose);
   }, [open, onClose]);
 
-  const isPanel = variant === 'panel';
+  const isPanel = variant !== 'fill';
+  const isSheet = variant === 'sheet';
 
   // Motion 11 cancels native animations before final styles render on the next frame.
   // Commit opacity per property so the backdrop and panel never reveal the initial style.
@@ -101,7 +106,7 @@ export function ModalLayer({
       <FloatingPortal>
         <AnimatePresence>
           {open && (
-            <m.div className={cn('fixed inset-0', isPanel ? 'z-40' : 'z-50', layerClassName)}>
+            <m.div className={cn('fixed inset-0 z-60', layerClassName)}>
               {/* Only the backdrop fades as a whole; the content owns its own entrance and exit. */}
               <m.div
                 ref={backdropRef}
@@ -116,14 +121,14 @@ export function ModalLayer({
               />
               <FloatingFocusManager context={context}>
                 {isPanel ? (
-                  <div className="fixed inset-0 z-50 grid place-items-center px-4">
+                  <div className={cn('fixed inset-0 grid place-items-center px-4 tablet:px-0', isSheet && 'tablet:items-end')}>
                     <m.div
                       ref={refs.setFloating}
-                      className={cn(PANEL_CLASS, className)}
-                      initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.96, y: 10 }}
+                      className={cn(PANEL_CLASS, isSheet && SHEET_CLASS, className)}
+                      initial={shouldReduceMotion ? false : { opacity: 0, scale: isTablet ? 1 : 0.96, y: isTablet ? 0 : 10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={
-                        shouldReduceMotion
+                        shouldReduceMotion || isTablet
                           ? { opacity: 0, transition: panelTransition(false) }
                           : { opacity: 0, scale: 0.97, y: 6, transition: panelTransition(false) }
                       }
