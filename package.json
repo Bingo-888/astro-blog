@@ -1,7 +1,7 @@
 {
   "name": "astro-koharu",
   "type": "module",
-  "version": "7.0.6",
+  "version": "7.0.7",
   "packageManager": "pnpm@10.28.2",
   "engines": {
     "node": ">=22.20.0"
@@ -31,7 +31,8 @@
     "koharu": "npx tsx scripts/koharu.tsx",
     "migrate": "pnpm koharu migrate",
     "save-slugs": "npx tsx scripts/save-slugs.ts",
-    "test": "npm run test:config && npm run test:markdown && npm run test:meting && npm run test:umami && npm run test:toc && npm run test:lightbox && npm run test:glide && npm run test:diagram && npm run test:migrate && npm run test:moments && npm run test:motion",
+    "test": "npm run test:workspace && npm run test:config && npm run test:markdown && npm run test:meting && npm run test:umami && npm run test:toc && npm run test:lightbox && npm run test:glide && npm run test:diagram && npm run test:migrate && npm run test:moments && npm run test:motion",
+    "test:workspace": "node --test tests/workspace.test.mjs",
     "test:config": "tsx --test src/lib/config/content.test.ts src/lib/config/featured-series.test.ts src/lib/config/motion.test.ts",
     "test:markdown": "tsx --test src/lib/markdown/*.test.ts",
     "test:editor": "tsx --test src/features/editor/*.test.ts src/features/editor/server/*.test.ts cms/src/api/source.test.ts",
@@ -51,7 +52,7 @@
     "test:moments:smoke": "bash tests/moments/smoke.sh",
     "test:moments:docker": "sh docker/smoke-dynamic.sh",
     "cms": "cd cms && pnpm dev",
-    "cms:install": "pnpm --dir cms install --ignore-workspace",
+    "cms:install": "pnpm --filter astro-koharu-cms install",
     "docker:up": "docker compose --env-file ./.env -f docker/docker-compose.yml up -d --build",
     "docker:down": "docker compose -f docker/docker-compose.yml down",
     "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
