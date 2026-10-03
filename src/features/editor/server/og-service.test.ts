@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import test from 'node:test';
-import { createEditorOGHandler } from './http';
+import { createEditorOGHandler, createEditorOGServer, parseEditorOGAllowedOrigins } from './http';
 import { createEditorOGService, type OGServiceOptions } from './og-service';
 import { isPublicIpAddress, parsePublicUrl } from './public-url';
 
@@ -261,7 +261,7 @@ function mockHttp(url: string, options: { method?: string; headers?: Record<stri
       status = code;
       Object.assign(headers, values);
     },
-    end(value: string) {
+    end(value = '') {
       body = value;
     },
   } as unknown as ServerResponse;
@@ -307,4 +307,225 @@ test('HTTP rate limit resets and never trusts attacker-supplied forwarded IPs', 
   const reset = mockHttp('/api/editor/og?url=https://example.com');
   await handle(reset.req, reset.res);
   assert.equal(reset.result().status, 200);
+});
+
+test('CORS environment settings validate exact HTTP(S) origins before startup', () => {
+  assert.equal(parseEditorOGAllowedOrigins(undefined), undefined);
+  assert.equal(parseEditorOGAllowedOrigins('  '), undefined);
+  assert.equal(parseEditorOGAllowedOrigins(' * '), '*');
+  assert.deepEqual(parseEditorOGAllowedOrigins('https://blog.example, http://localhost:4321,https://blog.example'), [
+    'https://blog.example',
+    'http://localhost:4321',
+  ]);
+  for (const value of [
+    'null',
+    'file:///tmp/editor',
+    'https://blog.example/',
+    'https://blog.example/path',
+    'https://user:password@blog.example',
+    'https://blog.example?query=1',
+    'https://blog.example#fragment',
+    'https://blog.example,',
+    '*,https://blog.example',
+    'https://blog.example https://other.example',
+  ]) {
+    assert.throws(() => parseEditorOGAllowedOrigins(value), /EDITOR_OG_ALLOWED_ORIGINS/, value);
+  }
+  assert.throws(() => createEditorOGHandler({ allowedOrigins: ['https://blog.example/path'] }), /allowedOrigins/);
+});
+
+test('default HTTP remains same-origin and rejects cross-site or opaque origins without fetching', async () => {
+  let calls = 0;
+  const handle = createEditorOGHandler({
+    fetchOG: async (url) => {
+      calls += 1;
+      return { originUrl: url, url, title: 'Article' };
+    },
+  });
+  const rejectedHeaders: Array<Record<string, string>> = [
+    { origin: 'https://attacker.example' },
+    { 'sec-fetch-site': 'cross-site' },
+    { origin: 'https://editor.example', 'sec-fetch-site': 'cross-site' },
+    { origin: 'null' },
+    { origin: '' },
+    { origin: 'https://editor.example/path' },
+  ];
+  for (const headers of rejectedHeaders) {
+    const request = mockHttp('/api/editor/og?url=https://example.com', { headers });
+    await handle(request.req, request.res);
+    assert.equal(request.result().status, 403);
+    assert.equal(request.result().headers['Access-Control-Allow-Origin'], undefined);
+  }
+  assert.equal(calls, 0);
+  const sameOrigin = mockHttp('/api/editor/og?url=https://example.com', { headers: { origin: 'https://editor.example' } });
+  await handle(sameOrigin.req, sameOrigin.res);
+  assert.equal(sameOrigin.result().status, 200);
+  assert.equal(sameOrigin.result().headers['Access-Control-Allow-Origin'], undefined);
+  assert.equal(calls, 1);
+});
+
+test('public HTTP permits valid cross-origin GET without credentials and rejects malformed origins', async () => {
+  let calls = 0;
+  const handle = createEditorOGHandler({
+    allowedOrigins: '*',
+    fetchOG: async (url) => {
+      calls += 1;
+      return { originUrl: url, url, title: 'Article' };
+    },
+  });
+  const request = mockHttp('/api/editor/og?url=https://example.com', {
+    headers: { origin: 'https://another-blog.example', 'sec-fetch-site': 'cross-site' },
+  });
+  await handle(request.req, request.res);
+  assert.equal(request.result().status, 200);
+  assert.equal(request.result().headers['Access-Control-Allow-Origin'], '*');
+  assert.equal(request.result().headers['Access-Control-Allow-Credentials'], undefined);
+  assert.equal(request.result().headers['Access-Control-Expose-Headers'], 'Retry-After');
+  for (const origin of [
+    'null',
+    '',
+    'not-an-origin',
+    'file:///tmp/editor',
+    'https://blog.example/path',
+    'https://user:password@blog.example',
+    'https://blog.example,https://other.example',
+  ]) {
+    const invalid = mockHttp('/api/editor/og?url=https://example.com', { headers: { origin } });
+    await handle(invalid.req, invalid.res);
+    assert.equal(invalid.result().status, 403, origin);
+    assert.equal(invalid.result().headers['Access-Control-Allow-Origin'], undefined, origin);
+  }
+  assert.equal(calls, 1);
+});
+
+test('allowlist uses exact origins and Vary while retaining same-origin and local non-browser access', async () => {
+  const handle = createEditorOGHandler({
+    allowedOrigins: ['https://blog.example', 'http://localhost:4321'],
+    fetchOG: async (url) => ({ originUrl: url, url, title: 'Article' }),
+  });
+  for (const origin of ['https://blog.example', 'http://localhost:4321', 'https://editor.example']) {
+    const request = mockHttp('/api/editor/og?url=https://example.com', { headers: { origin } });
+    await handle(request.req, request.res);
+    assert.equal(request.result().status, 200, origin);
+    assert.equal(request.result().headers['Access-Control-Allow-Origin'], origin);
+    assert.equal(request.result().headers.Vary, 'Origin');
+    assert.equal(request.result().headers['Access-Control-Allow-Credentials'], undefined);
+  }
+  for (const origin of ['https://blog.example:8443', 'http://blog.example', 'http://localhost:4322', 'https://other.example']) {
+    const request = mockHttp('/api/editor/og?url=https://example.com', { headers: { origin, 'sec-fetch-site': 'cross-site' } });
+    await handle(request.req, request.res);
+    assert.equal(request.result().status, 403, origin);
+    assert.equal(request.result().headers['Access-Control-Allow-Origin'], undefined);
+  }
+  const local = mockHttp('/api/editor/og?url=https://example.com');
+  await handle(local.req, local.res);
+  assert.equal(local.result().status, 200);
+});
+
+test('GET preflights never fetch or consume rate limits and reject other methods or custom headers', async () => {
+  let calls = 0;
+  const handle = createEditorOGHandler({
+    allowedOrigins: '*',
+    requestsPerMinute: 1,
+    fetchOG: async (url) => {
+      calls += 1;
+      return { originUrl: url, url, title: 'Article' };
+    },
+  });
+  const headers = { origin: 'https://blog.example', 'access-control-request-method': 'GET' };
+  for (let index = 0; index < 3; index += 1) {
+    const request = mockHttp('/api/editor/og?url=https://example.com', { method: 'OPTIONS', headers });
+    await handle(request.req, request.res);
+    assert.equal(request.result().status, 204);
+    assert.equal(request.result().headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(request.result().headers['Access-Control-Allow-Methods'], 'GET');
+    assert.equal(request.result().headers['Access-Control-Allow-Credentials'], undefined);
+    assert.equal(request.result().data, undefined);
+  }
+  assert.equal(calls, 0);
+  const invalid = mockHttp('/api/editor/og', {
+    method: 'OPTIONS',
+    headers: { ...headers, 'access-control-request-method': 'POST' },
+  });
+  await handle(invalid.req, invalid.res);
+  assert.equal(invalid.result().status, 405);
+  assert.equal(invalid.result().headers['Access-Control-Allow-Origin'], '*');
+  const custom = mockHttp('/api/editor/og', {
+    method: 'OPTIONS',
+    headers: { ...headers, 'access-control-request-headers': 'authorization' },
+  });
+  await handle(custom.req, custom.res);
+  assert.equal(custom.result().status, 403);
+  const missing = mockHttp('/api/editor/og', { method: 'OPTIONS' });
+  await handle(missing.req, missing.res);
+  assert.equal(missing.result().status, 400);
+  const first = mockHttp('/api/editor/og?url=https://example.com', { headers: { origin: headers.origin } });
+  await handle(first.req, first.res);
+  assert.equal(first.result().status, 200);
+  assert.equal(calls, 1);
+  const exhaustedPreflight = mockHttp('/api/editor/og', { method: 'OPTIONS', headers });
+  await handle(exhaustedPreflight.req, exhaustedPreflight.res);
+  assert.equal(exhaustedPreflight.result().status, 204);
+});
+
+test('public and allowlist CORS headers survive 400, 405, 429 and 503 responses', async () => {
+  for (const allowedOrigins of ['*', ['https://blog.example']] as const) {
+    const expectedOrigin = allowedOrigins === '*' ? '*' : 'https://blog.example';
+    const headers = { origin: 'https://blog.example', 'sec-fetch-site': 'cross-site' };
+    const handle = createEditorOGHandler({
+      allowedOrigins,
+      requestsPerMinute: 2,
+      fetchOG: async () => {
+        throw new Error('private upstream details');
+      },
+    });
+    const requests = [
+      [mockHttp('/api/editor/og?url=file:///private', { headers }), 400],
+      [mockHttp('/api/editor/og?url=https://example.com', { method: 'POST', headers }), 405],
+      [mockHttp('/api/editor/og?url=https://example.com', { headers }), 503],
+      [mockHttp('/api/editor/og?url=https://example.com', { headers }), 429],
+    ] as const;
+    for (const [request, status] of requests) {
+      await handle(request.req, request.res);
+      assert.equal(request.result().status, status);
+      assert.equal(request.result().headers['Access-Control-Allow-Origin'], expectedOrigin, String(status));
+      assert.equal(request.result().headers['Access-Control-Allow-Credentials'], undefined);
+      assert.equal(request.result().headers['Access-Control-Expose-Headers'], 'Retry-After');
+      if (allowedOrigins !== '*') assert.equal(request.result().headers.Vary, 'Origin');
+      if (status === 429) assert.equal(request.result().headers['Retry-After'], '60');
+      if (status === 503) assert.equal(JSON.stringify(request.result().data).includes('private'), false);
+    }
+  }
+});
+
+test('standalone server honors injected options and environment without real upstream network requests', async (t) => {
+  const previous = process.env.EDITOR_OG_ALLOWED_ORIGINS;
+  t.after(() => {
+    if (previous === undefined) delete process.env.EDITOR_OG_ALLOWED_ORIGINS;
+    else process.env.EDITOR_OG_ALLOWED_ORIGINS = previous;
+  });
+  process.env.EDITOR_OG_ALLOWED_ORIGINS = '*';
+  let calls = 0;
+  const server = createEditorOGServer({
+    fetchOG: async (url) => {
+      calls += 1;
+      return { originUrl: url, url, title: 'Injected offline metadata' };
+    },
+  });
+  t.after(() => {
+    server.closeAllConnections();
+    return new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  const endpoint = `http://127.0.0.1:${address.port}/api/editor/og?url=https://example.com`;
+  const result = await fetch(endpoint, { headers: { origin: 'https://another-blog.example' } });
+  assert.equal(result.status, 200);
+  assert.equal(result.headers.get('access-control-allow-origin'), '*');
+  assert.equal((await result.json()).title, 'Injected offline metadata');
+  assert.equal(calls, 1);
+  process.env.EDITOR_OG_ALLOWED_ORIGINS = 'null';
+  assert.throws(() => createEditorOGServer({ fetchOG: async (url) => ({ originUrl: url, url }) }), /EDITOR_OG_ALLOWED_ORIGINS/);
+  assert.doesNotThrow(() => createEditorOGServer({ allowedOrigins: '*', fetchOG: async (url) => ({ originUrl: url, url }) }));
 });

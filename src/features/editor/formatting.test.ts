@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { history, redo, undo } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
+import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState } from '@codemirror/state';
-import { type EditorFormat, formatEditorSelection } from './formatting';
+import { type EditorFormat, formatEditorSelection, toolbarFormats } from './formatting';
 
 function editor(doc: string, from: number, to = from, newline = '\n') {
   let state = EditorState.create({
@@ -245,5 +246,156 @@ test('existing multiline and fully selected nested emphasis toggles correctly', 
     const value = editor('***abc***', 0, 9);
     value.format(action);
     assert.equal(value.source, expected);
+  }
+});
+
+for (const [action, mark] of [
+  ['bold', '**'],
+  ['italic', '*'],
+] as const) {
+  for (const [from, to, expected] of [
+    [0, 2, `ab${mark}cdef${mark}`],
+    [2, 4, `${mark}ab${mark}cd${mark}ef${mark}`],
+    [4, 6, `${mark}abcd${mark}ef`],
+  ] as const) {
+    test(`${action} removes only a partial selection ${from}:${to}`, () => {
+      const source = `${mark}abcdef${mark}`;
+      const value = editor(source, mark.length + from, mark.length + to);
+      assert.equal(value.format(action), true);
+      assert.equal(value.source, expected);
+      assert.equal(value.selected, 'abcdef'.slice(from, to));
+      const tree = ensureSyntaxTree(value.target.state, value.target.state.doc.length, 50);
+      assert.ok(tree);
+      for (
+        let node: ReturnType<typeof tree.resolveInner> | null = tree.resolveInner(value.target.state.selection.main.from, 1);
+        node;
+        node = node.parent
+      ) {
+        assert.notEqual(node.name, action === 'bold' ? 'StrongEmphasis' : 'Emphasis');
+      }
+      assert.equal(undo(value.target), true);
+      assert.equal(value.source, source);
+      assert.equal(undo(value.target), false);
+    });
+  }
+}
+
+test('partial emphasis retains nested styles and refuses unsafe nested cuts', () => {
+  for (const [source, from, to, expected] of [
+    ['***abcdef***', 4, 6, '***a**bc**def***'],
+    ['**ab *cd* ef**', 6, 8, '**ab** *cd* **ef**'],
+  ] as const) {
+    const value = editor(source, from, to);
+    assert.equal(value.format('bold'), true);
+    assert.equal(value.source, expected);
+    const tree = ensureSyntaxTree(value.target.state, value.target.state.doc.length, 50);
+    assert.ok(tree);
+    const ancestors: string[] = [];
+    for (
+      let node: ReturnType<typeof tree.resolveInner> | null = tree.resolveInner(value.target.state.selection.main.from, 1);
+      node;
+      node = node.parent
+    )
+      ancestors.push(node.name);
+    assert.ok(ancestors.includes('Emphasis'));
+    assert.ok(!ancestors.includes('StrongEmphasis'));
+  }
+  const unsafe = editor('**ab *cd* ef**', 6, 7);
+  assert.equal(unsafe.format('bold'), false);
+  assert.equal(unsafe.source, '**ab *cd* ef**');
+});
+
+test('partial selections in the same emphasis node share one split and undo', () => {
+  const value = editor('**abcdef**', 0);
+  value.target.dispatch(
+    value.target.state.update({
+      selection: EditorSelection.create([EditorSelection.range(2, 3), EditorSelection.range(5, 6)]),
+    }),
+  );
+  assert.equal(value.format('bold'), true);
+  assert.equal(value.source, 'a**bc**d**ef**');
+  assert.deepEqual(
+    value.target.state.selection.ranges.map((r) => value.target.state.doc.sliceString(r.from, r.to)),
+    ['a', 'd'],
+  );
+  assert.equal(undo(value.target), true);
+  assert.equal(value.source, '**abcdef**');
+  assert.equal(undo(value.target), false);
+});
+
+for (const [action, open, close] of [
+  ['code', '```js', '```'],
+  ['note', ':::info', ':::'],
+  ['formula', '$$', '$$'],
+] as const) {
+  test(`${action} cannot unwrap two sibling blocks as one`, () => {
+    const source = `${open}\nfirst\n${close}\n\nbetween\n\n${open}\nsecond\n${close}`;
+    const value = editor(source, 0, source.length);
+    value.format(action);
+    assert.ok(value.source.includes(source));
+    const inner = editor(source, open.length + 1, source.length - close.length - 1);
+    inner.format(action);
+    assert.ok(inner.source.startsWith(`${open}\n`));
+    assert.ok(inner.source.endsWith(`\n${close}`));
+  });
+}
+
+test('nested notes unwrap one complete outer block and ignore fences inside code', () => {
+  for (const content of ['before\n:::info\ninner\n:::\nafter', '```\n:::info\n```\nafter']) {
+    const source = `:::info\n${content}\n:::`;
+    const value = editor(source, 0, source.length);
+    assert.equal(value.format('note'), true);
+    assert.equal(value.source, content);
+    assert.equal(undo(value.target), true);
+    assert.equal(value.source, source);
+  }
+});
+
+test('partial emphasis preserves CRLF, metadata and reverse selection through undo', () => {
+  const prefix = '---\r\ntitle: original # comment\r\n---\r\n';
+  const source = `${prefix}**abcdef**\r\ntail`;
+  const start = prefix.replace(/\r\n/g, '\n').length;
+  const value = editor(source, start + 6, start + 4, '\r\n');
+  assert.equal(value.format('bold'), true);
+  assert.equal(value.source, `${prefix}**ab**cd**ef**\r\ntail`);
+  assert.equal(value.selected, 'cd');
+  assert.ok(value.target.state.selection.main.anchor > value.target.state.selection.main.head);
+  assert.equal(undo(value.target), true);
+  assert.equal(value.source, source);
+});
+
+test('mixed partial and new emphasis preserve each selected text', () => {
+  const value = editor('**abcd** plain', 0);
+  value.target.dispatch(
+    value.target.state.update({
+      selection: EditorSelection.create([EditorSelection.range(3, 4), EditorSelection.range(9, 14)]),
+    }),
+  );
+  assert.equal(value.format('bold'), true);
+  assert.equal(value.source, '**a**b**cd** **plain**');
+  assert.deepEqual(
+    value.target.state.selection.ranges.map((r) => value.target.state.doc.sliceString(r.from, r.to)),
+    ['b', 'plain'],
+  );
+  assert.equal(undo(value.target), true);
+  assert.equal(value.source, '**abcd** plain');
+});
+
+test('partial emphasis refuses splits that break Markdown punctuation flanking', () => {
+  const value = editor('**ab.cd**', 3, 4);
+  assert.equal(value.format('bold'), false);
+  assert.equal(value.source, '**ab.cd**');
+  assert.equal(undo(value.target), false);
+});
+
+test('formatting cannot attach markers to frontmatter without a final newline', () => {
+  for (const newline of ['\n', '\r\n']) {
+    const source = ['---', 'title: A', '---'].join(newline);
+    for (const action of toolbarFormats) {
+      const value = editor(source, source.replace(/\r\n/g, '\n').length, undefined, newline);
+      assert.equal(value.format(action), false);
+      assert.equal(value.source, source);
+      assert.equal(undo(value.target), false);
+    }
   }
 });

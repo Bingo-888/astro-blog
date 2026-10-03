@@ -8,9 +8,11 @@ import { type Ref, useEffect, useImperativeHandle, useRef } from 'react';
 import { parseEditorDocument } from '../document';
 import { restoreEditorHistory, saveEditorHistory } from '../editor-history';
 import { type EditorFormat, formatEditorSelection } from '../formatting';
+import { insertEditorTemplate, updateEditorSource } from '../source-edit';
 
 export interface CodeEditorHandle {
-  insert: (source: string) => void;
+  insert: (source: string) => boolean;
+  saveHistory: () => void;
   format: (action: EditorFormat) => boolean;
   undo: () => void;
   redo: () => void;
@@ -28,6 +30,7 @@ interface Props {
 export default function CodeEditor({ source, draftId, onChange, onSelectionChange, ref }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
+  const persistHistory = useRef<() => void>(() => {});
   const change = useRef(onChange);
   change.current = onChange;
   const selectionChange = useRef(onSelectionChange);
@@ -98,6 +101,7 @@ export default function CodeEditor({ source, draftId, onChange, onSelectionChang
       }
     };
     window.addEventListener('pagehide', saveHistory);
+    persistHistory.current = saveHistory;
     view.current = editor;
     reportSelection(editor.state);
     const observer = new MutationObserver(() => editor.dispatch({ effects: theme.reconfigure(darkTheme()) }));
@@ -107,13 +111,13 @@ export default function CodeEditor({ source, draftId, onChange, onSelectionChang
       observer.disconnect();
       editor.destroy();
       view.current = null;
+      persistHistory.current = () => {};
     };
   }, [draftId]);
 
   useEffect(() => {
     const editor = view.current;
-    if (editor && editor.state.sliceDoc() !== source)
-      editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: source } });
+    if (editor && editor.state.sliceDoc() !== source) updateEditorSource(editor, source);
   }, [source]);
 
   useImperativeHandle(
@@ -121,20 +125,12 @@ export default function CodeEditor({ source, draftId, onChange, onSelectionChang
     () => ({
       insert: (text) => {
         const editor = view.current;
-        if (!editor) return;
-        const normalized = text.replace(/\r?\n/g, editor.state.lineBreak);
-        if (text.includes('\n')) {
-          const source = editor.state.doc.toString();
-          const bodyStart = source.length - parseEditorDocument(source).body.length;
-          if (editor.state.selection.main.from < bodyStart) editor.dispatch({ selection: { anchor: bodyStart } });
-          const position = editor.state.selection.main.from;
-          const prefix =
-            position > 0 && editor.state.doc.sliceString(position - 1, position) !== '\n' ? editor.state.lineBreak : '';
-          const suffix = normalized.endsWith(editor.state.lineBreak) ? '' : editor.state.lineBreak;
-          editor.dispatch(editor.state.replaceSelection(`${prefix}${normalized}${suffix}`));
-        } else editor.dispatch(editor.state.replaceSelection(normalized));
+        if (!editor) return false;
+        const applied = insertEditorTemplate(editor, text);
         editor.focus();
+        return applied;
       },
+      saveHistory: () => persistHistory.current(),
       format: (action) => {
         const editor = view.current;
         if (!editor) return false;
@@ -143,10 +139,16 @@ export default function CodeEditor({ source, draftId, onChange, onSelectionChang
         return applied;
       },
       undo: () => {
-        if (view.current) undo(view.current);
+        if (view.current) {
+          undo(view.current);
+          view.current.focus();
+        }
       },
       redo: () => {
-        if (view.current) redo(view.current);
+        if (view.current) {
+          redo(view.current);
+          view.current.focus();
+        }
       },
       focus: () => view.current?.focus(),
     }),

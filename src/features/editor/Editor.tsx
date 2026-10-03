@@ -3,15 +3,17 @@ import { copyMarkdown } from './clipboard';
 import ArticleProperties from './components/ArticleProperties';
 import CodeEditor, { type CodeEditorHandle } from './components/CodeEditor';
 import EditorIcon from './components/EditorIcon';
+import LinkPreviewSettings from './components/LinkPreviewSettings';
 import PreviewFrame from './components/PreviewFrame';
 import SyntaxPanel from './components/SyntaxPanel';
 import { createEditorSource, documentTitle, markdownFilename, parseEditorDocument, updateEditorProperty } from './document';
 import { clearEditorHistory } from './editor-history';
 import { type EditorFormat, toolbarFormats } from './formatting';
+import { readOGEndpoint, saveOGEndpoint } from './link-service';
 import { activeDraft, type DraftSummary, type EditorDraft, listDrafts, readDraft, removeDraft, writeDraft } from './storage';
 import { syntaxEntries } from './syntax';
 
-type Panel = 'drafts' | 'syntax' | 'properties' | 'copy' | null;
+type Panel = 'drafts' | 'syntax' | 'properties' | 'copy' | 'service' | null;
 interface Props {
   ogEndpoint?: string;
 }
@@ -21,6 +23,7 @@ function createDraft(source = createEditorSource(), filename?: string): EditorDr
 }
 
 export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
+  const [previewEndpoint, setPreviewEndpoint] = useState(ogEndpoint);
   const [draft, setDraft] = useState<EditorDraft>(() => createDraft());
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -46,6 +49,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
 
   useEffect(() => {
     try {
+      setPreviewEndpoint(readOGEndpoint(localStorage, location.href) ?? ogEndpoint);
       setDrafts(listDrafts(localStorage));
       const previous = activeDraft(localStorage);
       if (previous) setDraft(previous);
@@ -80,6 +84,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
         }
         const opened =
           restored && restored.filename === event.data.postId ? restored : createDraft(event.data.source, event.data.postId);
+        editor.current?.saveHistory();
         setCMS({ origin: event.origin, postId: event.data.postId });
         current.current = opened;
         setDraft(opened);
@@ -103,7 +108,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
     // article messages above still require the local CMS origin and the actual parent window.
     if (import.meta.env.DEV && window.parent !== window) window.parent.postMessage({ type: 'koharu-editor-ready' }, '*');
     return () => window.removeEventListener('message', receive);
-  }, []);
+  }, [ogEndpoint]);
 
   useEffect(() => {
     if (!initialized) return;
@@ -158,6 +163,9 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
   }, [panel]);
 
   const closePanel = (restoreFocus = true) => {
+    // Commit property fields before WebKit dismisses the dialog without firing blur.
+    if (document.activeElement instanceof HTMLElement && dialog.current?.contains(document.activeElement))
+      document.activeElement.blur();
     dialog.current?.close();
     setPanel(null);
     if (restoreFocus) requestAnimationFrame(() => panelTrigger.current?.focus({ preventScroll: true }));
@@ -191,6 +199,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
       return;
     }
     if (!flushDraft()) return;
+    editor.current?.saveHistory();
     detachCMS();
     setDraft(value);
     setError('');
@@ -199,13 +208,16 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
   const insert = (source: string) => {
     closePanel(false);
     setTab('edit');
-    requestAnimationFrame(() => editor.current?.insert(source));
+    requestAnimationFrame(() => {
+      if (editor.current?.insert(source)) setError('');
+      else setError('请将所有选区放在正文中再插入模板，文章属性请在属性面板中编辑。');
+    });
   };
   const format = (action: EditorFormat) => {
     setTab('edit');
     const apply = () => {
       if (editor.current?.format(action)) setError('');
-      else setError('请选择正文再使用格式工具，文章属性请在属性面板中编辑。');
+      else setError('当前选区无法安全应用此格式，请重新选择正文文字；文章属性请在属性面板中编辑。');
     };
     if (tab === 'edit') apply();
     else requestAnimationFrame(apply);
@@ -219,6 +231,18 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : '无法更新文章属性');
     }
+  };
+
+  const changePreviewService = (endpoint: string | null) => {
+    let persisted = true;
+    try {
+      saveOGEndpoint(localStorage, endpoint);
+    } catch {
+      persisted = false;
+    }
+    setPreviewEndpoint(endpoint ?? ogEndpoint);
+    closePanel();
+    setStatus(persisted ? '已切换链接预览服务' : '已切换本次预览服务，浏览器无法保存此设置');
   };
 
   const download = () => {
@@ -382,7 +406,18 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
         </div>
         <section className="editor-preview-pane" aria-label="实时预览区">
           <div className="editor-pane-heading">
-            <span>实时预览</span>
+            <div className="editor-preview-tools">
+              <span>实时预览</span>
+              <button
+                type="button"
+                className="editor-icon-button"
+                aria-label="链接预览服务"
+                title="链接预览服务"
+                onClick={(event) => openPanel('service', event.currentTarget)}
+              >
+                <EditorIcon name="link" />
+              </button>
+            </div>
             <div className="editor-segmented">
               <button type="button" aria-pressed={mode === 'body'} onClick={() => setMode('body')}>
                 正文
@@ -392,7 +427,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
               </button>
             </div>
           </div>
-          <PreviewFrame source={draft.source} mode={mode} ogEndpoint={ogEndpoint} />
+          <PreviewFrame source={draft.source} mode={mode} ogEndpoint={previewEndpoint} />
         </section>
       </div>
       <footer className="editor-status">
@@ -453,7 +488,9 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
                 ? '浏览器草稿'
                 : panel === 'copy'
                   ? '复制 Markdown'
-                  : '文章属性'
+                  : panel === 'service'
+                    ? '链接预览服务'
+                    : '文章属性'
           }
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
@@ -475,12 +512,20 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
               <SyntaxPanel
                 onInsert={insert}
                 onClose={() => closePanel()}
-                renderExample={(source) => <PreviewFrame source={source} example ogEndpoint={ogEndpoint} />}
+                renderExample={(source) => <PreviewFrame source={source} example ogEndpoint={previewEndpoint} />}
               />
             ) : (
               <>
                 <div className="editor-panel-header">
-                  <h2>{panel === 'drafts' ? '你的草稿' : panel === 'copy' ? '复制 Markdown' : '文章属性'}</h2>
+                  <h2>
+                    {panel === 'drafts'
+                      ? '你的草稿'
+                      : panel === 'copy'
+                        ? '复制 Markdown'
+                        : panel === 'service'
+                          ? '链接预览服务'
+                          : '文章属性'}
+                  </h2>
                   <button type="button" className="editor-icon-button" aria-label="关闭面板" onClick={() => closePanel()}>
                     <EditorIcon name="close" />
                   </button>
@@ -561,6 +606,12 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
                       {action('download', '下载 MD', download, 'editor-primary')}
                     </div>
                   </div>
+                ) : panel === 'service' ? (
+                  <LinkPreviewSettings
+                    endpoint={previewEndpoint}
+                    defaultEndpoint={ogEndpoint}
+                    onChange={changePreviewService}
+                  />
                 ) : (
                   <ArticleProperties data={parsed.data} error={parsed.error} onChange={setProperty} />
                 )}

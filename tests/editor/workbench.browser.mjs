@@ -108,14 +108,36 @@ try {
     const row = cms.locator('tr').filter({ hasText: '浏览器验收文章' });
     await row.getByTitle('Edit post', { exact: true }).click();
     const editor = cms.locator('iframe[title="Koharu 写作室"]').contentFrame();
+    const reloadFrame = () =>
+      cms.locator('iframe[title="Koharu 写作室"]').evaluate((frame) => {
+        // Reload from the stable parent so concurrent content HMR cannot destroy the evaluate context.
+        frame.setAttribute('src', frame.src);
+      });
+    const saveFile = async (expectedSource) => {
+      const completed = cms.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/cms/source' &&
+          response.request().method() === 'POST' &&
+          response.request().postDataJSON()?.postId === fixtureId,
+      );
+      await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
+      const response = await completed;
+      assert.equal(response.status(), 200);
+      assert.equal(response.request().postDataJSON().source, expectedSource);
+      const result = await response.json();
+      assert.equal(result.success, true);
+      assert.equal(result.postId, fixtureId);
+      assert.equal(result.source, expectedSource);
+      await expect.poll(() => readFile(fixturePath, 'utf8')).toBe(expectedSource);
+      assert.deepEqual(await readFile(fixturePath), Buffer.from(expectedSource));
+    };
     await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
     // A Vite or user reload changes the iframe referrer to itself; CMS access must reconnect.
     await editor.locator('.cm-content').evaluate(() => location.reload());
     await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(cms.getByRole('alert')).toHaveCount(0);
-    await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
-    await expect(editor.locator('.editor-status')).toContainText('已保存到博客文件');
-    assert.equal(await readFile(fixturePath, 'utf8'), source);
+    // Content HMR may replace the transient success footer before an assertion observes it.
+    await saveFile(source);
     const cmsInput = editor.locator('.cm-content');
     await editor.locator('.cm-line').filter({ hasText: '保留完整原文' }).click();
     await cmsInput.press('Home');
@@ -126,30 +148,27 @@ try {
     await expect(editor.locator('.cm-line').filter({ hasText: '保留完整原文' })).toHaveText('保留完整原文');
     await editor.getByRole('button', { name: '重做', exact: true }).click();
     await expect(editor.locator('.cm-line').filter({ hasText: '保留完整原文' })).toHaveText('**保留完整原文**');
-    await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
-    await expect.poll(() => readFile(fixturePath, 'utf8')).toBe(source.replace('保留完整原文', '**保留完整原文**'));
+    await saveFile(source.replace('保留完整原文', '**保留完整原文**'));
     // Astro content HMR can reload the iframe after a file write. Undo must survive that reload.
-    await cmsInput.evaluate(() => location.reload());
+    await reloadFrame();
     await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(editor.locator('.cm-line').filter({ hasText: '保留完整原文' })).toHaveText('**保留完整原文**');
     await editor.getByRole('button', { name: '撤销', exact: true }).click();
     await expect(editor.locator('.cm-line').filter({ hasText: '保留完整原文' })).toHaveText('保留完整原文');
-    await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
-    await expect.poll(() => readFile(fixturePath, 'utf8')).toBe(source);
+    await saveFile(source);
     await append(editor, 'CMS新增');
     // Reconnecting keeps the browser draft and its original disk baseline instead of overwriting unsaved changes.
-    await editor.locator('.cm-content').evaluate(() => location.reload());
+    await reloadFrame();
     await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(editor.locator('.cm-content')).toContainText('CMS新增');
-    await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
-    await expect(editor.locator('.editor-status')).toContainText('已保存到博客文件');
+    await saveFile(`${source}\r\nCMS新增`);
     const saved = await readFile(fixturePath, 'utf8');
     assert.ok(saved.startsWith('\uFEFF---\r\n') && saved.includes('custom: null'));
     assert.ok(saved.includes('\r\nCMS新增'));
     const external = `${saved}\r\n外部工具更新\r\n`;
     await writeFile(fixturePath, external);
     await append(editor, '冲突未覆盖');
-    await editor.locator('.cm-content').evaluate(() => location.reload());
+    await reloadFrame();
     await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(editor.locator('.cm-content')).toContainText('冲突未覆盖');
     await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
@@ -164,7 +183,7 @@ try {
       .click();
     await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toHaveCount(0);
     assert.equal(await readFile(fixturePath, 'utf8'), external);
-    await editor.locator('.cm-content').evaluate(() => location.reload());
+    await reloadFrame();
     await expect(editor.locator('.cm-content')).toBeVisible();
     await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toHaveCount(0);
     await cms.getByRole('button', { name: '← 返回文章列表', exact: true }).click();

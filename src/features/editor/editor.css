@@ -869,3 +869,33 @@
 .editor-panel-backdrop::backdrop {
   background: rgb(0 0 0 / 0.15);
 }
+
+.editor-preview-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.editor-preview-tools .editor-icon-button {
+  min-height: 24px;
+  min-width: 24px;
+  padding: 2px;
+  border-radius: 5px;
+}
+.editor-preview-tools svg {
+  width: 16px;
+  height: 16px;
+}
+.editor-service-default {
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+@media (pointer: coarse), (width <= 800px) {
+  .editor-preview-tools .editor-icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .editor-preview-tools svg {
+    width: 19px;
+    height: 19px;
+  }
+}

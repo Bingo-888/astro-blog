@@ -1,5 +1,5 @@
 import { isolateHistory } from '@codemirror/commands';
-import { ensureSyntaxTree } from '@codemirror/language';
+import { ensureSyntaxTree, language } from '@codemirror/language';
 import { type ChangeSpec, EditorSelection, type EditorState, type SelectionRange, type StateCommand } from '@codemirror/state';
 import { parseEditorDocument } from './document';
 
@@ -107,6 +107,108 @@ function inline(state: EditorState, range: SelectionRange, action: 'bold' | 'ita
   return replace(state, range, `${prefix}${content}${pad}${mark}${after}`, prefix.length, content.length);
 }
 
+/** Aggregate partial selections so one emphasis node is split only once. */
+function partialEmphasis(state: EditorState, action: 'bold' | 'italic') {
+  const tree = ensureSyntaxTree(state, state.selection.ranges.at(-1)?.to ?? 0, 50);
+  if (!tree) return state.facet(language) ? false : null;
+  const name = action === 'bold' ? 'StrongEmphasis' : 'Emphasis';
+  type Node = ReturnType<typeof tree.resolveInner>;
+  const groups = new Map<number, { node: Node; cuts: { from: number; to: number }[] }>();
+  const ordinary: SelectionRange[] = [];
+  for (const range of state.selection.ranges) {
+    let target: Node | null = null;
+    for (let node: Node | null = tree.resolveInner(range.from, 1); node; node = node.parent) {
+      if (node.name === name) {
+        target = node;
+        break;
+      }
+    }
+    const open = target?.firstChild;
+    const close = target?.lastChild;
+    if (
+      !target ||
+      !open ||
+      !close ||
+      range.empty ||
+      unwrapInline(state, range, name) ||
+      (range.from <= open.to && range.to >= close.from)
+    ) {
+      ordinary.push(range);
+      continue;
+    }
+    if (range.from < open.to || range.to > close.from) return false;
+    const cut = { from: range.from, to: range.to };
+    for (let child = open.nextSibling; child && child.from < close.from; child = child.nextSibling) {
+      const crossesStart = child.from < cut.from && cut.from < child.to;
+      const crossesEnd = child.from < cut.to && cut.to < child.to;
+      if (!crossesStart && !crossesEnd) continue;
+      const innerOpen = child.firstChild;
+      const innerClose = child.lastChild;
+      if (
+        !['Emphasis', 'StrongEmphasis', 'InlineCode'].includes(child.name) ||
+        !innerOpen ||
+        !innerClose ||
+        cut.from > innerOpen.to ||
+        cut.to < innerClose.from
+      )
+        return false;
+      cut.from = Math.min(cut.from, child.from);
+      cut.to = Math.max(cut.to, child.to);
+    }
+    let group = groups.get(target.from);
+    if (!group) {
+      group = { node: target, cuts: [] };
+      groups.set(target.from, group);
+    }
+    group.cuts.push(cut);
+  }
+  if (!groups.size) return null;
+  const edits: ChangeSpec[] = [];
+  const retained: { from: number; to: number }[] = [];
+  const bounds = [...groups.values()].sort((a, b) => a.node.from - b.node.from);
+  for (const [index, group] of bounds.entries()) {
+    if (index > 0 && bounds[index - 1].node.to > group.node.from) return false;
+    if (ordinary.some((range) => range.from < group.node.to && range.to > group.node.from)) return false;
+    const open = group.node.firstChild;
+    const close = group.node.lastChild;
+    if (!open || !close) return false;
+    const cuts = group.cuts.sort((a, b) => a.from - b.from);
+    const mark = action === 'bold' ? '**' : '*';
+    edits.push({ from: group.node.from, to: open.to }, { from: close.from, to: group.node.to });
+    const keep = (from: number, to: number) => {
+      const text = state.doc.sliceString(from, to);
+      if (!text.trim()) return;
+      const start = from + (text.match(/^\s*/)?.[0].length ?? 0);
+      const end = to - (text.match(/\s*$/)?.[0].length ?? 0);
+      edits.push({ from: start, insert: mark }, { from: end, insert: mark });
+      retained.push({ from: start, to: end });
+    };
+    let position = open.to;
+    for (const cut of cuts) {
+      if (cut.from > position) keep(position, cut.from);
+      position = Math.max(position, cut.to);
+    }
+    if (position < close.from) keep(position, close.from);
+  }
+  const ordinaryEdits = state.changeByRange((range) => (ordinary.includes(range) ? emphasis(state, range, action) : { range }));
+  const partialChanges = state.changes(edits).map(ordinaryEdits.changes);
+  const changes = ordinaryEdits.changes.compose(partialChanges);
+  const next = state.update({ changes }).state;
+  const nextTree = ensureSyntaxTree(next, changes.mapPos(bounds.at(-1)?.node.to ?? 0), 50);
+  if (!nextTree) return false;
+  // Punctuation and adjacent delimiter runs can change Markdown flanking rules.
+  for (const range of retained) {
+    const from = changes.mapPos(range.from, 1);
+    const to = changes.mapPos(range.to, -1);
+    let preserved = false;
+    for (let node: Node | null = nextTree.resolveInner(from, 1); node; node = node.parent) {
+      if (node.name === name && node.from <= from && node.to >= to) preserved = true;
+    }
+    if (!preserved) return false;
+  }
+  return { changes, selection: ordinaryEdits.selection.map(partialChanges) };
+}
+
 function emphasis(state: EditorState, range: SelectionRange, action: 'bold' | 'italic'): Edit {
   const unwrapped = unwrapInline(state, range, action === 'bold' ? 'StrongEmphasis' : 'Emphasis');
   if (unwrapped) return unwrapped;
@@ -128,16 +230,52 @@ function emphasis(state: EditorState, range: SelectionRange, action: 'bold' | 'i
   };
 }
 
-function blockMarkersMatch(action: 'note' | 'code' | 'formula', open: string, close: string) {
-  if (action === 'note') return open === ':::info' && close === ':::';
-  if (action === 'formula') return open === '$$' && close === '$$';
-  return /^`{3,}[^`]*$/.test(open) && close === open.match(/^`+/)?.[0];
+function matchingBlock(state: EditorState, from: number, to: number, action: 'note' | 'code' | 'formula') {
+  const first = state.doc.lineAt(from);
+  const last = state.doc.lineAt(to);
+  if (first.from !== from || last.to !== to || last.number - first.number < 2) return false;
+  if (action === 'code') {
+    const tree = ensureSyntaxTree(state, to, 50);
+    for (let node = tree?.resolveInner(from, 1) ?? null; node; node = node.parent) {
+      if (node.name !== 'FencedCode' || node.from !== from || node.to !== to) continue;
+      const open = first.text.match(/^(`{3,}|~{3,})/)?.[1];
+      return Boolean(open && new RegExp(`^${open[0]}{${open.length},}\\s*$`).test(last.text));
+    }
+    return false;
+  }
+  if (action === 'formula') {
+    if (first.text !== '$$' || last.text !== '$$') return false;
+    for (let number = first.number + 1; number < last.number; number++) {
+      if (state.doc.line(number).text.trim() === '$$') return false;
+    }
+    return true;
+  }
+  if (first.text !== ':::info') return false;
+  let depth = 1;
+  let fence = '';
+  for (let number = first.number + 1; number <= last.number; number++) {
+    const line = state.doc.line(number).text;
+    if (fence) {
+      if (new RegExp(`^ {0,3}${fence[0]}{${fence.length},}\\s*$`).test(line)) fence = '';
+      continue;
+    }
+    const code = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (code) {
+      fence = code[1];
+      continue;
+    }
+    if (/^:::\S/.test(line)) depth++;
+    else if (line.trim() === ':::') depth--;
+    if (depth === 0) return number === last.number;
+  }
+  return false;
 }
 
 function unwrapBlock(state: EditorState, range: SelectionRange, action: 'note' | 'code' | 'formula'): Edit | undefined {
-  const selected = state.doc.sliceString(range.from, range.to).split('\n');
-  if (selected.length >= 3 && blockMarkersMatch(action, selected[0], selected[selected.length - 1])) {
-    const text = selected.slice(1, -1).join('\n');
+  if (matchingBlock(state, range.from, range.to, action)) {
+    const first = state.doc.lineAt(range.from);
+    const last = state.doc.lineAt(range.to);
+    const text = state.doc.sliceString(first.to + 1, last.from - 1);
     return replace(state, range, text, 0, text.length);
   }
   const first = state.doc.lineAt(range.from);
@@ -145,8 +283,7 @@ function unwrapBlock(state: EditorState, range: SelectionRange, action: 'note' |
   if (range.from === first.from && range.to === last.to && first.number > 1 && last.number < state.doc.lines) {
     const open = state.doc.line(first.number - 1);
     const close = state.doc.line(last.number + 1);
-    const matches = blockMarkersMatch(action, open.text, close.text);
-    if (matches) {
+    if (matchingBlock(state, open.from, close.to, action)) {
       const changes = state.changes([
         { from: open.from, to: first.from },
         { from: last.to, to: close.to },
@@ -223,9 +360,20 @@ export function formatEditorSelection(target: Parameters<StateCommand>[0], actio
   if (state.readOnly) return false;
   const source = state.doc.toString();
   const bodyStart = source.length - parseEditorDocument(source).body.length;
+  if (bodyStart > 0 && bodyStart === source.length && !source.endsWith('\n')) return false;
   if (state.selection.ranges.some((range) => range.from < bodyStart)) return false;
+  if (
+    action === 'formula' &&
+    state.selection.ranges.some(
+      (range) => /^\$\$[ \t]*$/m.test(state.doc.sliceString(range.from, range.to)) && !unwrapBlock(state, range, action),
+    )
+  )
+    return false;
+  const partial = action === 'bold' || action === 'italic' ? partialEmphasis(state, action) : null;
+  if (partial === false) return false;
   const edits =
-    action === 'heading'
+    partial ??
+    (action === 'heading'
       ? heading(state)
       : state.changeByRange((range) => {
           if (action === 'bold' || action === 'italic') return emphasis(state, range, action);
@@ -235,7 +383,7 @@ export function formatEditorSelection(target: Parameters<StateCommand>[0], actio
           if (action === 'note' || state.doc.sliceString(range.from, range.to).includes('\n'))
             return block(state, range, action);
           return inline(state, range, action);
-        });
+        }));
   target.dispatch(
     state.update({ ...edits, userEvent: 'input.format', annotations: isolateHistory.of('full'), scrollIntoView: true }),
   );

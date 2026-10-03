@@ -1,12 +1,6 @@
 import DOMPurify from 'dompurify';
 
-interface PreviewMetadataResponse {
-  html?: string;
-  title?: string;
-  description?: string;
-  image?: string;
-  error?: boolean | string;
-}
+import { type PreviewMetadataResponse, readLinkMetadata } from './link-metadata';
 
 interface CachedLink {
   expires: number;
@@ -32,9 +26,13 @@ async function fetchLink(endpoint: string, url: string): Promise<PreviewMetadata
     try {
       const target = new URL(endpoint, location.href);
       target.searchParams.set('url', url);
-      const response = await fetch(target, { signal: controller.signal, credentials: 'omit' });
+      // Same-origin deployments may require the host's preview login; never send credentials to another instance.
+      const response = await fetch(target, {
+        signal: controller.signal,
+        credentials: target.origin === location.origin ? 'same-origin' : 'omit',
+      });
       if (!response.ok) throw new Error('链接信息暂时无法获取');
-      return (await response.json()) as PreviewMetadataResponse;
+      return await readLinkMetadata(response);
     } finally {
       clearTimeout(timeout);
       activeLinkRequests -= 1;

@@ -18,7 +18,7 @@
 
 预览在独立同源 iframe 内，180 ms 防抖；解析、代码高亮和加密在 Web Worker 中运行，只保留最新待渲染任务，丢弃过期结果。代码高亮语言、图表和嵌入按需加载；链接卡片请求去重、有并发和缓存上限。语法手册只加载当前展开项目的效果。危险 HTML 会在渲染与解密后的 DOM 边界净化；文章原文不因净化而改变。任意 JavaScript、HTML 表单和自定义样式不会在预览里执行。
 
-符合博客规则的独立网址会实时抓取链接卡片，新网址无需先存在于博客构建缓存。Tweet、CodePen 使用原有识别方式。网站拒绝抓取、需要登录或网络失败时显示可点击的降级链接。Vercel 部署自动包含同源 Node 抓取函数；其他静态托管需要接上轻量 [链接预览服务](./editor-link-service.md)，整个 Markdown 不会传给服务。
+符合博客规则的独立网址会实时抓取链接卡片，新网址无需先存在于博客构建缓存。点击「实时预览」旁的链接图标，可以填写自己或他人部署的公开预览实例；设置只保存在当前浏览器，所有草稿共用，也可恢复部署默认值。Tweet、CodePen 使用原有识别方式。网站拒绝抓取、需要登录或网络失败时显示可点击的降级链接。Vercel 部署自动包含同源 Node 抓取函数；其他静态托管需要接上轻量 [链接预览服务](./editor-link-service.md)，整个 Markdown 不会传给服务。
 
 ## CMS 保存
 
@@ -32,7 +32,7 @@ pnpm cms:install
 pnpm cms
 ```
 
-打开 `http://localhost:4322`，选择文章后会进入同一写作室。CMS 通过本地 API 读取、写入完整 UTF-8 原文，保存时比较打开时的原文；如文件被其他工具改过，会提示冲突，不覆盖外部修改。原文和对照原文分别上限 5 MiB。保存失败后仍可复制或下载当前编辑内容。CMS 内刷新写作室会恢复本次文件的浏览器草稿，并保留原来的冲突检查基线；返回列表重新打开文章才重新读取磁盘。新建、导入、切换或删除当前草稿会解除文件保存绑定。
+打开 `http://localhost:4322`，选择文章后会进入同一写作室。CMS 通过本地 API 读取、写入完整 UTF-8 原文，保存时比较打开时的原文；如文件被其他工具改过，会提示冲突，不覆盖外部修改。原文和对照原文分别上限 5 MiB。保存失败后仍可复制或下载当前编辑内容。CMS 内刷新写作室会恢复本次文件的浏览器草稿，并保留原来的冲突检查基线；返回列表重新打开文章才重新读取磁盘。新建、导入、切换或删除当前草稿会解除文件保存绑定。切换草稿前保留当前撤销历史，重新打开后可继续撤销；历史通过 CodeMirror 官方序列化存入 sessionStorage，只在原文一致时恢复。
 
 博客开发端口若有变化，在启动 CMS 时设置实际地址：
 
@@ -61,10 +61,13 @@ EDITOR_TEST_URL=http://localhost:4321 CMS_TEST_URL=http://localhost:4322 node te
 EDITOR_TEST_URL=http://localhost:4321 node --import tsx tests/editor/decrypted-html.browser.mjs
 EDITOR_TEST_URL=http://localhost:4321 node --import tsx tests/editor/worker.browser.mjs
 EDITOR_TEST_URL=http://localhost:4321 node tests/editor/properties.browser.mjs
+EDITOR_TEST_URL=http://localhost:4321 node tests/editor/interactions.browser.mjs
+EDITOR_TEST_URL=http://localhost:4321 EDITOR_TEST_BROWSER=webkit node tests/editor/interactions.browser.mjs
+EDITOR_TEST_URL=http://localhost:4321 node --import tsx tests/editor/link-service.browser.mjs
 EDITOR_TEST_URL=http://localhost:4321 node tests/editor/mobile.browser.mjs
 EDITOR_TEST_URL=http://localhost:4321 EDITOR_TEST_BROWSER=webkit node tests/editor/mobile.browser.mjs
 ```
 
 不传 `CMS_TEST_URL` 只验证公开页；可以将 `EDITOR_TEST_URL` 指向生产静态预览，检查打包后的 Worker 与交互。CMS 浏览器测试创建并清理一篇临时测试文章。
 
-Vercel 在静态页面之外自动部署 `api/editor/og.ts`；其他平台仍然可以静态托管 `/editor/` 与 `/editor/preview/`，只为 `/api/editor/og` 追加同域反代。部署示例和服务边界见链接预览服务文档。浏览器必须允许 JavaScript；剪贴板需要 HTTPS 或 localhost。移动端的软键盘与输入法仍需以实际设备表现为准。
+Vercel 在静态页面之外自动部署 `api/editor/og.ts`；其他平台仍然可以静态托管 `/editor/` 与 `/editor/preview/`，可以为 `/api/editor/og` 追加同域反代，也可以填写已开放 CORS 的独立公开实例。部署示例和服务边界见链接预览服务文档。浏览器必须允许 JavaScript；剪贴板需要 HTTPS 或 localhost。移动端的软键盘与输入法仍需以实际设备表现为准。

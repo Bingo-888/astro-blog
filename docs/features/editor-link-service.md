@@ -18,7 +18,7 @@ Vercel 使用平台自带的 Node 函数；自托管静态博客可以运行一�
 https://<preview>.vercel.app/api/editor/og?url=https%3A%2F%2Fexample.com
 ```
 
-成功响应应含 `title`、`description` 和 `html`；返回包含 `error` 的链接卡片表示接口已接入但目标网站抓取失败。缺少 `url` 时应返回 HTTP 400 JSON，这也能区分函数路由与静态 404。Vercel 的预览登录保护同时适用于页面和接口；未登录的命令行请求可能被转到登录页面，不能把它当作接口运行成功。
+成功响应应含 `title`、`description` 和 `html`；返回包含 `error` 的链接卡片表示接口已接入但目标网站抓取失败。缺少 `url` 时应返回 HTTP 400 JSON，这也能区分函数路由与静态 404。同源请求保留托管平台的预览登录态；填写其它实例时不发送 Cookie 或认证凭据。Vercel 的预览登录保护同时适用于页面和接口；未登录的命令行请求可能被转到登录页面，不能把它当作接口运行成功。
 
 函数必须使用 Node 运行时，不能换成 Edge，因为 DNS 校验与固定连接需要 Node/undici。缓存、并发和请求预算属于每个函数实例，冷启动清空缓存；扩容后不构成跨实例全局限流，需要更严格的公开流量限制时在 Vercel Firewall 配置。此路由不监听额外端口，也不会公开 CMS 文件接口。Node 代码不记录查询网址；平台自带的访问日志与保留策略由托管平台管理。
 
@@ -79,6 +79,48 @@ location = /api/editor/og {
 
 如 nginx 与 Node 不在同一个容器或主机，将目标替换为服务内部地址。其余博客路由仍使用原有静态托管，不要求整个博客转为 Node。这里只反代指定路径，不能顺带公开 `/api/cms/`。
 
+## 部署一个可共享的公开实例
+
+服务不绑定博客域名、Vercel 或本站部署。可以只运行 OG 容器，用自己的 HTTPS 域名提供 `/api/editor/og`，让其它网站的编辑器填写这个实例地址。仍然不需要数据库、Redis 或账号。
+
+独立部署示例：
+
+```sh
+docker build -f deploy/editor/Dockerfile -t koharu-editor-og:local .
+docker run -d --name koharu-editor-og --restart unless-stopped --init \
+  --read-only --tmpfs /tmp:size=16m,mode=1777 --memory=256m \
+  -e EDITOR_OG_ALLOWED_ORIGINS='*' \
+  -p 127.0.0.1:4323:4323 koharu-editor-og:local
+```
+
+在 `https://og.example.com` 的入口把 `/api/editor/og` 反代到 `127.0.0.1:4323`，可以复用上面的 nginx 配置。这里的域名是示例，需要替换为实际域名并配置 HTTPS。容器本身不处理 TLS。保持实例公开可读；Vercel 登录保护等需要登录的入口不能作为供他人调用的公共实例。
+
+`EDITOR_OG_ALLOWED_ORIGINS` 是服务端运行时配置，Node、Docker 和 Vercel Node 函数都支持：
+
+| 值 | 行为 |
+| --- | --- |
+| 未设置 | 保留默认同源访问，拒绝跨站浏览器请求 |
+| `*` | 接受任意合法 HTTP(S) 网页来源的无凭据跨域访问 |
+| `https://blog.example,https://other.example` | 只额外允许这些精确来源；来源含协议、主机和端口，不含路径 |
+
+允许来源的 GET、错误响应和 GET 的 OPTIONS 预检都会带正确的 CORS 头。服务不提供带 Cookie/认证凭据的跨域模式，不开放其它 HTTP 方法、上传或文件接口。Origin 检查始终不是认证，公开模式保留相同的 URL/DNS、响应大小、超时、缓存、并发和请求预算。[浏览器 CORS 的工作方式](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)。
+
+直接运行 Node 时：
+
+```sh
+EDITOR_OG_ALLOWED_ORIGINS='*' pnpm editor:og
+```
+
+访客在写作室「实时预览」旁的链接图标中打开「链接预览服务」，填写 `https://og.example.com` 或完整接口 `https://og.example.com/api/editor/og`，点击「使用此实例」。只填写域名时自动补标准接口；也支持返回相同 JSON 格式的自定义接口路径。设置保存到当前浏览器的 localStorage，所有草稿共用，可以「恢复默认」。切换服务立即重新渲染并抓取链接；第三方实例响应在浏览器中流式限制为 256 KiB，超限或格式错误会保留原链接。文章原文、草稿、属性和 MD 导出不包含该设置。HTTPS 页面必须使用 HTTPS 实例。
+
+若希望博客访客默认使用这个实例，在博客构建时设置：
+
+```sh
+PUBLIC_EDITOR_OG_ENDPOINT=https://og.example.com/api/editor/og pnpm build
+```
+
+这只是默认地址，访客仍可自行更换；服务端实例还需开放对应 CORS 来源。抓取失败时保留可点击的原链接，不能通过实例设置绕过目标网站限制。服务经过单个反向代理时共享每分钟 120 次预算，公开实例流量较大时可在入口追加按客户端限流，而不需要在服务内新增存储。
+
 ## 复用接口
 
 ```ts
@@ -101,7 +143,7 @@ if (!handled) next();
 - 最多缓存 256 条，成功保留一小时、失败保留三十秒；不持久化、重启即清空，不暴露缓存列表。
 - HTTP 层每个直连地址每分钟最多 120 次请求，限流表最多 1024 条；不信任 `X-Forwarded-For`。经过同一个反向代理的访问共享该预算，可在边缘额外按客户端限流。预算及其他默认值可在创建适配器时调整。
 - 服务不记录 URL、正文或上游异常堆栈，响应设置 `no-store`。反向代理也应关闭此路径的查询日志，因为 URL 查询参数可能含敏感信息。仅 URL 离开浏览器，Markdown、frontmatter、加密密码和本机草稿不上传。
-- 服务不开放跨域许可并拒绝明显跨站浏览器请求；它仍是公开接口，Origin 检查不是认证，流量与内存边界始终生效。
+- 默认不开放跨域许可；共享实例可以显式配置公开或精确来源许可。接口仍是公开接口，Origin 检查不是认证，流量与内存边界始终生效。
 
 ## 验证
 
@@ -111,7 +153,7 @@ if (!handled) next();
 node --import tsx --test src/features/editor/server/og-service.test.ts
 ```
 
-测试覆盖私网地址、混合 DNS 结果、跳转至内网、跳转上限、正文大小、DNS/正文超时、缓存过期与容量、在途去重、并发限制、元数据解析、HTTP 路由边界及限流。实际反代、生产网络与目标网站成功率需要部署环境验证。
+测试覆盖私网地址、混合 DNS 结果、跳转至内网、跳转上限、正文大小、DNS/正文超时、缓存过期与容量、在途去重、并发限制、元数据解析、HTTP 路由边界及限流、公开/精确来源 CORS、预检与错误响应。实际反代、生产网络与目标网站成功率需要部署环境验证。
 
 
 部署文件验证可运行 `docker compose -f deploy/editor/compose.yaml config --quiet`，不需要启动容器。本次还在隔离目录中仅用独立锁文件安装生产依赖，验证了 CLI 导入无启动副作用、真实元数据解析器和共享卡片 HTML；该环境不存在 Astro、BlockNote、Hono 或机器学习包。Docker 守护进程在当前验证环境不可访问，尚未实际构建或运行 Linux 镜像，也未实测容器反代。
