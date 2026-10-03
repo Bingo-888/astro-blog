@@ -135,6 +135,11 @@ export const uiStrings = {
   'diagram.download': '이미지 다운로드',
   'diagram.resize': '다이어그램 크기 조절',
   'diagram.resizeHint': '드래그하여 크기 조절, 더블클릭하여 원래대로',
+  'diagram.renderError': '다이어그램을 표시할 수 없습니다',
+  'diagram.loadingSlow': '다이어그램을 불러오는 데 시간이 걸리고 있습니다',
+  'diagram.errorHelp': '페이지를 새로고침하거나 도구 모음에서 다이어그램 소스를 보고 복사할 수 있습니다.',
+  'diagram.errorHelpNoSource': '페이지를 새로고침하여 다시 시도해 주세요.',
+  'diagram.reload': '새로고침',
 
   // ── Image Lightbox ──────────────────────────────────────────
   'image.preview': '이미지 미리보기',

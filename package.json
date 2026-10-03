@@ -1,7 +1,7 @@
 {
   "name": "astro-koharu",
   "type": "module",
-  "version": "7.0.7",
+  "version": "7.0.8",
   "packageManager": "pnpm@10.28.2",
   "engines": {
     "node": ">=22.20.0"
@@ -44,7 +44,8 @@
     "test:settings-panel": "node tests/settings/panel-animation.mjs",
     "test:bgm-panel": "node tests/bgm/panel-loading.mjs",
     "test:glide": "tsx --test src/lib/glide.test.ts",
-    "test:diagram": "tsx --test src/lib/diagram-sizing.test.ts",
+    "test:diagram": "tsx --test src/lib/diagram-sizing.test.ts src/lib/mermaid-source.test.ts",
+    "test:diagram:browser": "node tests/diagram/mermaid.browser.mjs",
     "test:migrate": "tsx --test scripts/koharu/utils/*.test.ts",
     "test:moments": "tsx --test src/lib/config/moments.test.ts tests/moments/*.test.ts",
     "test:moments:smoke": "bash tests/moments/smoke.sh",
