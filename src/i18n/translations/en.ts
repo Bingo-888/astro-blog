@@ -137,6 +137,11 @@ export const uiStrings: UIStrings = {
   'diagram.download': 'Download image',
   'diagram.resize': 'Resize diagram',
   'diagram.resizeHint': 'Drag to resize, double-click to reset',
+  'diagram.renderError': 'This diagram could not be displayed',
+  'diagram.loadingSlow': 'This diagram is taking longer to load',
+  'diagram.errorHelp': 'Reload to try again, or use the toolbar to view and copy the diagram source.',
+  'diagram.errorHelpNoSource': 'Reload the page to try again.',
+  'diagram.reload': 'Reload',
 
   // ── Image Lightbox ──────────────────────────────────────────
   'image.preview': 'Image preview',

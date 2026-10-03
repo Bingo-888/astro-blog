@@ -136,6 +136,11 @@ export const uiStrings = {
   'diagram.download': '下载图片',
   'diagram.resize': '调整图表大小',
   'diagram.resizeHint': '拖动调整大小，双击还原',
+  'diagram.renderError': '图表暂时无法显示',
+  'diagram.loadingSlow': '图表加载时间较长',
+  'diagram.errorHelp': '可以刷新页面重试，或通过工具栏查看和复制图表源码。',
+  'diagram.errorHelpNoSource': '请刷新页面重试。',
+  'diagram.reload': '刷新重试',
 
   // ── Image Lightbox ──────────────────────────────────────────
   'image.preview': '图片预览',
