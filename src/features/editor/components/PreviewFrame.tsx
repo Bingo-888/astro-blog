@@ -29,7 +29,8 @@ export default function PreviewFrame({ source, mode = 'body', example = false, o
 
   useEffect(() => {
     if (!ready) return;
-    const send = () =>
+    const send = () => {
+      // Keep the caller frame: WebKit tail calls can misattribute the postMessage source.
       frame.current?.contentWindow?.postMessage(
         {
           type: 'koharu-preview-source',
@@ -41,6 +42,7 @@ export default function PreviewFrame({ source, mode = 'body', example = false, o
         },
         window.location.origin,
       );
+    };
     const timer = window.setTimeout(send, example ? 0 : 180);
     const observer = new MutationObserver(send);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });

@@ -116,6 +116,26 @@ try {
     await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
     await expect(editor.locator('.editor-status')).toContainText('已保存到博客文件');
     assert.equal(await readFile(fixturePath, 'utf8'), source);
+    const cmsInput = editor.locator('.cm-content');
+    await editor.locator('.cm-line').filter({ hasText: '保留完整原文' }).click();
+    await cmsInput.press('Home');
+    await cmsInput.press('Shift+End');
+    await expect.poll(() => cmsInput.evaluate(() => window.getSelection().toString())).toBe('保留完整原文');
+    await editor.getByTitle('粗体', { exact: true }).click();
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+    await expect(editor.locator('.cm-line').filter({ hasText: '保留完整原文' })).toHaveText('保留完整原文');
+    await editor.getByRole('button', { name: '重做', exact: true }).click();
+    await expect(editor.locator('.cm-line').filter({ hasText: '保留完整原文' })).toHaveText('**保留完整原文**');
+    await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
+    await expect.poll(() => readFile(fixturePath, 'utf8')).toBe(source.replace('保留完整原文', '**保留完整原文**'));
+    // Astro content HMR can reload the iframe after a file write. Undo must survive that reload.
+    await cmsInput.evaluate(() => location.reload());
+    await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(editor.locator('.cm-line').filter({ hasText: '保留完整原文' })).toHaveText('**保留完整原文**');
+    await editor.getByRole('button', { name: '撤销', exact: true }).click();
+    await expect(editor.locator('.cm-line').filter({ hasText: '保留完整原文' })).toHaveText('保留完整原文');
+    await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
+    await expect.poll(() => readFile(fixturePath, 'utf8')).toBe(source);
     await append(editor, 'CMS新增');
     // Reconnecting keeps the browser draft and its original disk baseline instead of overwriting unsaved changes.
     await editor.locator('.cm-content').evaluate(() => location.reload());

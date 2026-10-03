@@ -6,6 +6,8 @@ import EditorIcon from './components/EditorIcon';
 import PreviewFrame from './components/PreviewFrame';
 import SyntaxPanel from './components/SyntaxPanel';
 import { createEditorSource, documentTitle, markdownFilename, parseEditorDocument, updateEditorProperty } from './document';
+import { clearEditorHistory } from './editor-history';
+import { type EditorFormat, toolbarFormats } from './formatting';
 import { activeDraft, type DraftSummary, type EditorDraft, listDrafts, readDraft, removeDraft, writeDraft } from './storage';
 import { syntaxEntries } from './syntax';
 
@@ -199,6 +201,15 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
     setTab('edit');
     requestAnimationFrame(() => editor.current?.insert(source));
   };
+  const format = (action: EditorFormat) => {
+    setTab('edit');
+    const apply = () => {
+      if (editor.current?.format(action)) setError('');
+      else setError('请选择正文再使用格式工具，文章属性请在属性面板中编辑。');
+    };
+    if (tab === 'edit') apply();
+    else requestAnimationFrame(apply);
+  };
   const setProperty = (key: string, value: unknown) => {
     try {
       const valueAfterEdit = { ...current.current, source: updateEditorProperty(current.current.source, key, value) };
@@ -299,7 +310,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
           {action('new', '新建', () => activate(createDraft()))}
           {action('import', '导入', () => importInput.current?.click())}
           <span className="editor-divider" />
-          {['bold', 'italic', 'heading', 'link', 'image', 'note', 'code', 'formula'].map((id) => {
+          {toolbarFormats.map((id) => {
             const entry = syntaxEntries.find((item) => item.id === id);
             return (
               entry && (
@@ -308,8 +319,9 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
                   type="button"
                   className="editor-icon-button"
                   title={entry.label}
-                  aria-label={`插入${entry.label}`}
-                  onClick={() => insert(entry.source)}
+                  aria-label={entry.label}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => format(id)}
                 >
                   <EditorIcon name={id} />
                 </button>
@@ -506,6 +518,11 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
                             if (!window.confirm(`删除「${entry.title}」的浏览器草稿？`)) return;
                             try {
                               removeDraft(localStorage, entry.id);
+                              try {
+                                clearEditorHistory(sessionStorage, entry.id);
+                              } catch {
+                                // Browser restrictions can block access to optional history storage.
+                              }
                               setDrafts(listDrafts(localStorage));
                               if (entry.id === draft.id) {
                                 detachCMS();

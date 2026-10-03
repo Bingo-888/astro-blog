@@ -25,7 +25,10 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
     let opening = false;
     let detached = false;
     const editorOrigin = new URL(DEV_SERVER_URL).origin;
-    const send = (data: object) => frame.current?.contentWindow?.postMessage(data, editorOrigin);
+    const send = (data: object) => {
+      // WebKit must keep the caller frame for the editor to validate the message source.
+      frame.current?.contentWindow?.postMessage(data, editorOrigin);
+    };
     const open = async () => {
       if (opening || detached) return;
       if (baseline.current !== null) {
