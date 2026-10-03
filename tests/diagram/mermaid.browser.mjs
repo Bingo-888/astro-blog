@@ -6,6 +6,14 @@ const origin = process.env.DIAGRAM_TEST_ORIGIN || 'http://127.0.0.1:4321';
 const engines = { chromium, firefox, webkit };
 const browsers = (process.env.DIAGRAM_TEST_BROWSERS || 'firefox,chromium').split(',');
 
+async function isolateExternalResources(page) {
+  // The fixture includes third-party embeds; keep their availability outside this diagram regression.
+  await page.route('**/*', (route) => {
+    if (new URL(route.request().url()).origin === new URL(origin).origin) return route.continue();
+    return route.abort();
+  });
+}
+
 for (const name of browsers) {
   assert.ok(engines[name], `Unknown browser: ${name}`);
   const browser = await engines[name].launch();
@@ -16,7 +24,8 @@ for (const name of browsers) {
     ]) {
       const page = await browser.newPage({ viewport, colorScheme: 'dark' });
       try {
-        await page.goto(`${origin}/post/markdown-features`);
+        await isolateExternalResources(page);
+        await page.goto(`${origin}/post/markdown-features`, { waitUntil: 'domcontentloaded' });
         const wrapper = page.locator('.mermaid-wrapper').first();
         const pre = wrapper.locator('pre.mermaid');
         const toggle = wrapper.getByRole('button', { name: /查看源码|查看渲染结果/ });
@@ -97,18 +106,20 @@ for (const name of browsers) {
     if (name === 'firefox') {
       const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
       try {
+        await isolateExternalResources(page);
         let blockedImports = 0;
         await page.route(/\/mermaid(?:\.core)?[^/]*\.js(?:\?|$)/, async (route) => {
           blockedImports++;
           await route.abort();
         });
-        await page.goto(`${origin}/post/markdown-features`);
+        await page.goto(`${origin}/post/markdown-features`, { waitUntil: 'domcontentloaded' });
         const wrapper = page.locator('.mermaid-wrapper').first();
         await wrapper.getByRole('status').waitFor({ timeout: 25000 });
         assert.ok(blockedImports > 0, 'The test must block the actual Mermaid import');
         assert.match(await wrapper.getByRole('status').textContent(), /图表加载时间较长/);
         assert.equal(await wrapper.locator('pre.mermaid').getAttribute('data-processed'), null);
         await page.unrouteAll();
+        await isolateExternalResources(page);
         await wrapper.getByRole('button', { name: '刷新重试' }).click();
         await page.waitForFunction(() => document.querySelector('pre.mermaid[data-diagram-sized] > svg'));
         console.log('PASS firefox: blocked Mermaid import shows delay notice; reload recovers');
