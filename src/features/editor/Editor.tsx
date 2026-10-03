@@ -1,4 +1,6 @@
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { copyMarkdown } from './clipboard';
+import ArticleProperties from './components/ArticleProperties';
 import CodeEditor, { type CodeEditorHandle } from './components/CodeEditor';
 import EditorIcon from './components/EditorIcon';
 import PreviewFrame from './components/PreviewFrame';
@@ -7,7 +9,7 @@ import { createEditorSource, documentTitle, markdownFilename, parseEditorDocumen
 import { activeDraft, type DraftSummary, type EditorDraft, listDrafts, readDraft, removeDraft, writeDraft } from './storage';
 import { syntaxEntries } from './syntax';
 
-type Panel = 'drafts' | 'syntax' | 'properties' | null;
+type Panel = 'drafts' | 'syntax' | 'properties' | 'copy' | null;
 interface Props {
   ogEndpoint?: string;
 }
@@ -29,9 +31,12 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
   const [error, setError] = useState('');
   const [cms, setCMS] = useState<{ origin: string; postId: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const editor = useRef<CodeEditorHandle>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const panelTrigger = useRef<HTMLElement | null>(null);
+  const copySource = useRef<HTMLTextAreaElement>(null);
   const current = useRef(draft);
   current.current = draft;
   const parsed = useMemo(() => parseEditorDocument(draft.source), [draft.source]);
@@ -47,6 +52,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
     setInitialized(true);
     const receive = (event: MessageEvent) => {
       if (!import.meta.env.DEV || event.source !== window.parent || window.parent === window) return;
+      if (!URL.canParse(event.origin)) return;
       const origin = new URL(event.origin);
       if (!['localhost', '127.0.0.1'].includes(origin.hostname) || origin.port !== '4322') return;
       if (
@@ -54,9 +60,34 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
         typeof event.data.source === 'string' &&
         typeof event.data.postId === 'string'
       ) {
+        let restored: EditorDraft | null = null;
+        try {
+          if (typeof event.data.restoreDraftId === 'string')
+            restored =
+              current.current.id === event.data.restoreDraftId
+                ? current.current
+                : readDraft(localStorage, event.data.restoreDraftId);
+        } catch {
+          // A failed restore below preserves the currently visible draft.
+        }
+        if (typeof event.data.restoreDraftId === 'string' && restored?.filename !== event.data.postId) {
+          setError('无法恢复 CMS 草稿，当前原文已保留。请复制或下载后，从文章列表重新打开文件。');
+          window.parent.postMessage({ type: 'koharu-cms-detach', postId: event.data.postId }, event.origin);
+          return;
+        }
+        const opened =
+          restored && restored.filename === event.data.postId ? restored : createDraft(event.data.source, event.data.postId);
         setCMS({ origin: event.origin, postId: event.data.postId });
-        setDraft(createDraft(event.data.source, event.data.postId));
-        setStatus('已从 CMS 打开文章');
+        current.current = opened;
+        setDraft(opened);
+        try {
+          writeDraft(localStorage, opened);
+          setDrafts(listDrafts(localStorage));
+        } catch {
+          setError('浏览器草稿保存失败，请及时复制或下载；刷新可能丢失未保存的修改。');
+        }
+        setStatus(restored === opened ? '已恢复 CMS 编辑草稿' : '已从 CMS 打开文章');
+        window.parent.postMessage({ type: 'koharu-cms-opened', postId: event.data.postId, draftId: opened.id }, event.origin);
       }
       if (event.data?.type === 'koharu-cms-result') {
         setSaving(false);
@@ -65,11 +96,9 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
       }
     };
     window.addEventListener('message', receive);
-    if (import.meta.env.DEV && window.parent !== window && document.referrer) {
-      const origin = new URL(document.referrer);
-      if (['localhost', '127.0.0.1'].includes(origin.hostname) && origin.port === '4322')
-        window.parent.postMessage({ type: 'koharu-editor-ready' }, origin.origin);
-    }
+    // Reloads can change document.referrer to this iframe. Only the non-sensitive ready notice is broadcast;
+    // article messages above still require the local CMS origin and the actual parent window.
+    if (import.meta.env.DEV && window.parent !== window) window.parent.postMessage({ type: 'koharu-editor-ready' }, '*');
     return () => window.removeEventListener('message', receive);
   }, []);
 
@@ -100,19 +129,44 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
 
   useEffect(() => {
     const viewport = window.visualViewport;
-    const resize = () =>
+    const resize = () => {
       document.documentElement.style.setProperty('--editor-height', `${viewport?.height ?? window.innerHeight}px`);
+      document.documentElement.style.setProperty('--editor-offset-top', `${viewport?.offsetTop ?? 0}px`);
+    };
     resize();
     viewport?.addEventListener('resize', resize);
+    viewport?.addEventListener('scroll', resize);
+    window.addEventListener('resize', resize);
     return () => {
       viewport?.removeEventListener('resize', resize);
+      viewport?.removeEventListener('scroll', resize);
+      window.removeEventListener('resize', resize);
       document.documentElement.style.removeProperty('--editor-height');
+      document.documentElement.style.removeProperty('--editor-offset-top');
     };
   }, []);
 
   useEffect(() => {
     if (panel && dialog.current && !dialog.current.open) dialog.current.showModal();
+    if (panel === 'copy') {
+      copySource.current?.focus({ preventScroll: true });
+      copySource.current?.select();
+    }
   }, [panel]);
+
+  const closePanel = (restoreFocus = true) => {
+    dialog.current?.close();
+    setPanel(null);
+    if (restoreFocus) requestAnimationFrame(() => panelTrigger.current?.focus({ preventScroll: true }));
+  };
+  const openPanel = (name: Exclude<Panel, null>, trigger?: HTMLElement) => {
+    if (panel === name) {
+      closePanel();
+      return;
+    }
+    panelTrigger.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    setPanel(name);
+  };
 
   const flushDraft = () => {
     try {
@@ -123,26 +177,32 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
       return false;
     }
   };
+  const detachCMS = () => {
+    if (cms) window.parent.postMessage({ type: 'koharu-cms-detach', postId: cms.postId }, cms.origin);
+    setCMS(null);
+    setSaving(false);
+  };
   const activate = (value: EditorDraft) => {
     if (value.id === current.current.id) {
-      setPanel(null);
+      closePanel();
       return;
     }
     if (!flushDraft()) return;
-    setCMS(null);
-    setSaving(false);
+    detachCMS();
     setDraft(value);
     setError('');
-    setPanel(null);
+    closePanel(false);
   };
   const insert = (source: string) => {
-    setPanel(null);
+    closePanel(false);
     setTab('edit');
     requestAnimationFrame(() => editor.current?.insert(source));
   };
   const setProperty = (key: string, value: unknown) => {
     try {
-      setDraft((previous) => ({ ...previous, source: updateEditorProperty(previous.source, key, value) }));
+      const valueAfterEdit = { ...current.current, source: updateEditorProperty(current.current.source, key, value) };
+      current.current = valueAfterEdit;
+      setDraft(valueAfterEdit);
       setError('');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : '无法更新文章属性');
@@ -158,12 +218,16 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     setStatus('已下载完整 Markdown');
   };
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(draft.source);
-      setStatus('已复制完整 Markdown');
-    } catch {
-      setError('无法访问剪贴板，请选中源码复制，或下载 Markdown 文件。');
+  const copy = async (trigger?: HTMLElement) => {
+    setError('');
+    if (await copyMarkdown(current.current.source)) setStatus('已复制完整 Markdown');
+    else {
+      setStatus('请在原文选区中选择复制');
+      if (panel !== 'copy') openPanel('copy', trigger);
+      else {
+        copySource.current?.focus({ preventScroll: true });
+        copySource.current?.select();
+      }
     }
   };
   const saveCMS = () => {
@@ -178,7 +242,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
     activate(createDraft(source, 'shoka-features.md'));
   };
 
-  const action = (name: string, label: string, onClick: () => void, extra = '') => (
+  const action = (name: string, label: string, onClick: (event: MouseEvent<HTMLButtonElement>) => void, extra = '') => (
     <button type="button" className={`editor-button ${extra}`} onClick={onClick} title={label} aria-label={label}>
       <EditorIcon name={name} />
       <span>{label}</span>
@@ -203,12 +267,19 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
           <span>{cms ? `CMS · ${cms.postId}` : '只保存在你的浏览器'}</span>
         </div>
         <div className="editor-header-actions">
-          {action('copy', '复制', () => {
-            void copy();
+          {action('copy', '复制', (event) => {
+            void copy(event.currentTarget);
           })}
           {action('download', '下载 MD', download, 'editor-primary')}
           {cms && (
-            <button type="button" className="editor-button editor-primary" onClick={saveCMS} disabled={saving}>
+            <button
+              type="button"
+              className="editor-button editor-primary"
+              aria-label={saving ? '保存中…' : '保存到博客'}
+              title="保存到博客"
+              onClick={saveCMS}
+              disabled={saving}
+            >
               <EditorIcon name="save" />
               <span>{saving ? '保存中…' : '保存到博客'}</span>
             </button>
@@ -217,7 +288,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
       </header>
       <div className="editor-toolbar">
         <div className="editor-tools">
-          {action('draft', '草稿', () => setPanel(panel === 'drafts' ? null : 'drafts'))}
+          {action('draft', '草稿', (event) => openPanel('drafts', event.currentTarget))}
           {action('new', '新建', () => activate(createDraft()))}
           {action('import', '导入', () => importInput.current?.click())}
           <span className="editor-divider" />
@@ -238,13 +309,19 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
               )
             );
           })}
-          {action('help', '语法手册', () => setPanel(panel === 'syntax' ? null : 'syntax'))}
-        </div>
-        <div className="editor-tools editor-view-tools">
+          {action('help', '语法手册', (event) => openPanel('syntax', event.currentTarget))}
           {action('undo', '撤销', () => editor.current?.undo())}
           {action('redo', '重做', () => editor.current?.redo())}
-          {action('settings', '文章属性', () => setPanel(panel === 'properties' ? null : 'properties'))}
-          <button type="button" className="editor-button" aria-pressed={focus} onClick={() => setFocus(!focus)}>
+        </div>
+        <div className="editor-tools editor-view-tools">
+          {action('settings', '文章属性', (event) => openPanel('properties', event.currentTarget))}
+          <button
+            type="button"
+            className="editor-button"
+            aria-label={focus ? '退出专注' : '专注'}
+            aria-pressed={focus}
+            onClick={() => setFocus(!focus)}
+          >
             <EditorIcon name="edit" />
             <span>{focus ? '退出专注' : '专注'}</span>
           </button>
@@ -262,12 +339,15 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
         <section className="editor-source-pane" aria-label="源码编辑区">
           <div className="editor-pane-heading">
             <span>Markdown</span>
-            <small>原文编辑 · 保留全部语法</small>
+            <small>
+              第 {cursor.line} 行 · 第 {cursor.column} 列
+            </small>
           </div>
           <CodeEditor
             ref={editor}
             source={draft.source}
             draftId={draft.id}
+            onSelectionChange={setCursor}
             onChange={(source) => setDraft((previous) => ({ ...previous, source }))}
           />
         </section>
@@ -313,11 +393,11 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
           <EditorIcon name="preview" />
           预览
         </button>
-        <button type="button" onClick={() => setPanel('syntax')}>
+        <button type="button" onClick={(event) => openPanel('syntax', event.currentTarget)}>
           <EditorIcon name="help" />
           语法
         </button>
-        <button type="button" onClick={() => setPanel('properties')}>
+        <button type="button" onClick={(event) => openPanel('properties', event.currentTarget)}>
           <EditorIcon name="settings" />
           属性
         </button>
@@ -347,27 +427,42 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
         <dialog
           ref={dialog}
           className="editor-panel-backdrop"
-          aria-label={panel === 'syntax' ? '语法手册' : panel === 'drafts' ? '浏览器草稿' : '文章属性'}
+          aria-label={
+            panel === 'syntax'
+              ? '语法手册'
+              : panel === 'drafts'
+                ? '浏览器草稿'
+                : panel === 'copy'
+                  ? '复制 Markdown'
+                  : '文章属性'
+          }
           onKeyDown={(event) => {
-            if (event.key === 'Escape') setPanel(null);
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              closePanel();
+            }
           }}
-          onCancel={() => setPanel(null)}
+          onCancel={(event) => {
+            event.preventDefault();
+            closePanel();
+          }}
+          onClose={() => setPanel(null)}
           onClick={(event) => {
-            if (event.target === event.currentTarget) setPanel(null);
+            if (event.target === event.currentTarget) closePanel();
           }}
         >
           <aside className="editor-panel">
             {panel === 'syntax' ? (
               <SyntaxPanel
                 onInsert={insert}
-                onClose={() => setPanel(null)}
+                onClose={() => closePanel()}
                 renderExample={(source) => <PreviewFrame source={source} example ogEndpoint={ogEndpoint} />}
               />
             ) : (
               <>
                 <div className="editor-panel-header">
-                  <h2>{panel === 'drafts' ? '你的草稿' : '文章属性'}</h2>
-                  <button type="button" className="editor-icon-button" aria-label="关闭面板" onClick={() => setPanel(null)}>
+                  <h2>{panel === 'drafts' ? '你的草稿' : panel === 'copy' ? '复制 Markdown' : '文章属性'}</h2>
+                  <button type="button" className="editor-icon-button" aria-label="关闭面板" onClick={() => closePanel()}>
                     <EditorIcon name="close" />
                   </button>
                 </div>
@@ -406,8 +501,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
                               removeDraft(localStorage, entry.id);
                               setDrafts(listDrafts(localStorage));
                               if (entry.id === draft.id) {
-                                setCMS(null);
-                                setSaving(false);
+                                detachCMS();
                                 setError('');
                                 setDraft(createDraft());
                               }
@@ -421,53 +515,30 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
                       </div>
                     ))}
                   </div>
-                ) : (
+                ) : panel === 'copy' ? (
                   <div className="editor-panel-content">
-                    <p className="editor-muted">与源码中的 YAML 同步。自定义字段可以直接在源码中编辑。</p>
-                    {parsed.error && <p className="editor-error">{parsed.error}</p>}
-                    {['title', 'date', 'updated', 'cover', 'description'].map((key) => (
-                      <label key={key} className="editor-field">
-                        <span>
-                          {
-                            { title: '标题', date: '发布时间', updated: '更新时间', cover: '封面网址', description: '摘要' }[
-                              key
-                            ]
-                          }
-                        </span>
-                        <input
-                          value={typeof parsed.data[key] === 'string' ? (parsed.data[key] as string) : ''}
-                          onChange={(event) => setProperty(key, event.target.value)}
-                        />
-                      </label>
-                    ))}
-                    {['tags', 'categories'].map((key) => (
-                      <label key={key} className="editor-field">
-                        <span>{key === 'tags' ? '标签' : '分类'}（以逗号分隔）</span>
-                        <input
-                          value={Array.isArray(parsed.data[key]) ? (parsed.data[key] as unknown[]).flat().join(', ') : ''}
-                          onChange={(event) =>
-                            setProperty(
-                              key,
-                              event.target.value
-                                .split(/[,，]/)
-                                .map((value) => value.trim())
-                                .filter(Boolean),
-                            )
-                          }
-                        />
-                      </label>
-                    ))}
-                    {['draft', 'catalog', 'tocNumbering'].map((key) => (
-                      <label key={key} className="editor-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={key === 'draft' ? parsed.data[key] === true : parsed.data[key] !== false}
-                          onChange={(event) => setProperty(key, event.target.checked)}
-                        />
-                        <span>{{ draft: '标记为草稿', catalog: '显示目录', tocNumbering: '目录自动编号' }[key]}</span>
-                      </label>
-                    ))}
+                    <p className="editor-muted">浏览器未允许自动复制。下方已选中完整原文，可长按选区选择「复制」。</p>
+                    <textarea
+                      ref={copySource}
+                      className="editor-copy-source"
+                      aria-label="完整 Markdown 原文"
+                      value={draft.source}
+                      readOnly
+                      spellCheck={false}
+                    />
+                    <div className="editor-copy-actions">
+                      {action('copy', '全选原文', () => {
+                        copySource.current?.focus({ preventScroll: true });
+                        copySource.current?.select();
+                      })}
+                      {action('copy', '再次复制', () => {
+                        void copy();
+                      })}
+                      {action('download', '下载 MD', download, 'editor-primary')}
+                    </div>
                   </div>
+                ) : (
+                  <ArticleProperties data={parsed.data} error={parsed.error} onChange={setProperty} />
                 )}
               </>
             )}

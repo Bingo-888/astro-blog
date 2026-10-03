@@ -90,26 +90,35 @@ export function enhanceEditorPreview(container: HTMLElement): () => void {
     });
   }
 
-  container.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((anchor) => {
-    const href = anchor.getAttribute('href') ?? '';
-    if (/^(https?:)?\/\//.test(href)) {
-      anchor.target = '_blank';
-      anchor.rel = 'noopener noreferrer';
-    }
-    if (href.startsWith('#')) {
-      listen(anchor, 'click', (event) => {
-        event.preventDefault();
-        let id = href.slice(1);
+  function links(root: ParentNode) {
+    root.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((anchor) => {
+      const href = (anchor.getAttribute('href') ?? '').trim();
+      if (href.startsWith('#')) {
+        listen(anchor, 'click', (event) => {
+          event.preventDefault();
+          let id = href.slice(1);
+          try {
+            id = decodeURIComponent(id);
+          } catch {
+            // Incomplete percent escapes can occur while the author is typing an anchor.
+          }
+          const target = doc.getElementById(id);
+          if (target && container.contains(target)) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      } else {
         try {
-          id = decodeURIComponent(id);
+          const url = new URL(href, doc.baseURI);
+          if (url.protocol === 'https:' || url.protocol === 'http:') {
+            anchor.target = '_blank';
+            anchor.rel = 'noopener noreferrer';
+          }
         } catch {
-          // Incomplete percent escapes can occur while the author is typing an anchor.
+          // An unfinished URL can occur while the author is typing.
         }
-        const target = doc.getElementById(id);
-        if (target && container.contains(target)) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
-  });
+      }
+    });
+  }
+  links(container);
 
   container.querySelectorAll<HTMLElement>('.tab-group').forEach((group, groupIndex) => {
     const headers = Array.from(group.querySelectorAll<HTMLElement>(':scope > .tab-headers > .tab-header'));
@@ -191,6 +200,7 @@ export function enhanceEditorPreview(container: HTMLElement): () => void {
         });
         block.dataset.state = data.error ? 'error' : 'success';
         images(block);
+        links(block);
       } else {
         const title = block.querySelector('a');
         if (title && data.title) title.textContent = data.title;

@@ -6,7 +6,23 @@
 
 ## 运行方式
 
-生产静态博客只需新增这一个 Node 进程，无数据库、Redis、账号或新服务框架。开发与 CMS 可以把同一个 handler 注册到已有服务器，无需另起此进程；只注册 OG 接口，不会提供项目文件读写。
+Vercel 使用平台自带的 Node 函数；自托管静态博客可以运行一个小型 Node 进程，无数据库、Redis、账号或新服务框架。开发与 CMS 可以把同一个 handler 注册到已有服务器；只注册 OG 接口，不会提供项目文件读写。
+
+### Vercel 的 PR 预览和正式站点
+
+仓库根目录的 `api/editor/og.ts` 是 Vercel Node Function，复用同一个 handler；`vercel.json` 为此函数设置十五秒预算，抓取内部仍限制八秒。提交到 PR 分支后，Vercel 自动把静态博客和这个同源接口一起部署。无需单独申请服务器、设置 `PUBLIC_EDITOR_OG_ENDPOINT`、开放 CORS 或配置数据库；编辑器继续请求 `/api/editor/og`。
+
+部署完成并登录该预览的 Vercel 保护页面后，可以在浏览器打开下面的地址验证。把域名换成该 PR 的实际预览域名：
+
+```text
+https://<preview>.vercel.app/api/editor/og?url=https%3A%2F%2Fexample.com
+```
+
+成功响应应含 `title`、`description` 和 `html`；返回包含 `error` 的链接卡片表示接口已接入但目标网站抓取失败。缺少 `url` 时应返回 HTTP 400 JSON，这也能区分函数路由与静态 404。Vercel 的预览登录保护同时适用于页面和接口；未登录的命令行请求可能被转到登录页面，不能把它当作接口运行成功。
+
+函数必须使用 Node 运行时，不能换成 Edge，因为 DNS 校验与固定连接需要 Node/undici。缓存、并发和请求预算属于每个函数实例，冷启动清空缓存；扩容后不构成跨实例全局限流，需要更严格的公开流量限制时在 Vercel Firewall 配置。此路由不监听额外端口，也不会公开 CMS 文件接口。Node 代码不记录查询网址；平台自带的访问日志与保留策略由托管平台管理。
+
+参考：[Vercel Node 函数](https://vercel.com/docs/functions/runtimes/node-js)、[函数时长配置](https://vercel.com/docs/functions/configuring-functions/duration)。
 
 ### 静态博客与 OG 一起部署
 

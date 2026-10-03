@@ -104,10 +104,18 @@ try {
     await row.getByTitle('Edit post', { exact: true }).click();
     const editor = cms.locator('iframe[title="Koharu 写作室"]').contentFrame();
     await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
+    // A Vite or user reload changes the iframe referrer to itself; CMS access must reconnect.
+    await editor.locator('.cm-content').evaluate(() => location.reload());
+    await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(cms.getByRole('alert')).toHaveCount(0);
     await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
     await expect(editor.locator('.editor-status')).toContainText('已保存到博客文件');
     assert.equal(await readFile(fixturePath, 'utf8'), source);
     await append(editor, 'CMS新增');
+    // Reconnecting keeps the browser draft and its original disk baseline instead of overwriting unsaved changes.
+    await editor.locator('.cm-content').evaluate(() => location.reload());
+    await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(editor.locator('.cm-content')).toContainText('CMS新增');
     await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
     await expect(editor.locator('.editor-status')).toContainText('已保存到博客文件');
     const saved = await readFile(fixturePath, 'utf8');
@@ -116,6 +124,9 @@ try {
     const external = `${saved}\r\n外部工具更新\r\n`;
     await writeFile(fixturePath, external);
     await append(editor, '冲突未覆盖');
+    await editor.locator('.cm-content').evaluate(() => location.reload());
+    await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(editor.locator('.cm-content')).toContainText('冲突未覆盖');
     await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
     await expect(editor.getByRole('alert')).toContainText('其他');
     assert.equal(await readFile(fixturePath, 'utf8'), external);
@@ -128,6 +139,28 @@ try {
       .click();
     await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toHaveCount(0);
     assert.equal(await readFile(fixturePath, 'utf8'), external);
+    await editor.locator('.cm-content').evaluate(() => location.reload());
+    await expect(editor.locator('.cm-content')).toBeVisible();
+    await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toHaveCount(0);
+    await cms.getByRole('button', { name: '← 返回文章列表', exact: true }).click();
+    await cms.locator('tr').filter({ hasText: '浏览器验收文章' }).getByTitle('Edit post', { exact: true }).click();
+    const reopened = cms.locator('iframe[title="Koharu 写作室"]').contentFrame();
+    await expect(reopened.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible();
+    await expect(reopened.locator('.cm-content')).toContainText('外部工具更新');
+    await expect(reopened.locator('.cm-content')).not.toContainText('冲突未覆盖');
+    await cms.setViewportSize({ width: 390, height: 844 });
+    await expect(reopened.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible();
+    assert.equal(await cms.evaluate(() => document.documentElement.scrollWidth), 390);
+    assert.equal(await reopened.locator('.cm-content').evaluate(() => document.documentElement.scrollWidth), 390);
+    await reopened.getByRole('button', { name: '语法', exact: true }).click();
+    await expect(reopened.getByRole('dialog', { name: '语法手册', exact: true })).toBeVisible();
+    await cms.screenshot({ path: '/private/tmp/editor-cms-mobile-handbook.png' });
+    await reopened.getByRole('button', { name: '关闭语法手册', exact: true }).click();
+    await cms.screenshot({ path: '/private/tmp/editor-cms-mobile-source.png' });
+    await cms.setViewportSize({ width: 320, height: 568 });
+    await expect(reopened.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible();
+    assert.equal(await cms.evaluate(() => document.documentElement.scrollWidth), 320);
+    assert.equal(await reopened.locator('.cm-content').evaluate(() => document.documentElement.scrollWidth), 320);
     console.log(
       'PASS CMS: shared editor, exact no-op save, CRLF editing, external conflict, deletion clears file-save context',
     );

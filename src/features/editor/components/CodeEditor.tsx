@@ -1,8 +1,9 @@
-import { defaultKeymap, history, historyKeymap, redo, undo } from '@codemirror/commands';
+import { redo, undo } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
+import { Compartment, EditorState } from '@codemirror/state';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { EditorView, placeholder } from '@codemirror/view';
+import { basicSetup } from 'codemirror';
 import { type Ref, useEffect, useImperativeHandle, useRef } from 'react';
 import { parseEditorDocument } from '../document';
 
@@ -17,20 +18,30 @@ interface Props {
   source: string;
   draftId: string;
   onChange: (source: string) => void;
+  onSelectionChange?: (position: { line: number; column: number }) => void;
   ref?: Ref<CodeEditorHandle>;
 }
 
-export default function CodeEditor({ source, draftId, onChange, ref }: Props) {
+export default function CodeEditor({ source, draftId, onChange, onSelectionChange, ref }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const change = useRef(onChange);
   change.current = onChange;
+  const selectionChange = useRef(onSelectionChange);
+  selectionChange.current = onSelectionChange;
   const initial = useRef(source);
   initial.current = source;
 
   useEffect(() => {
     if (!container.current) return;
     container.current.dataset.draftId = draftId;
+    const reportSelection = (state: EditorState) => {
+      const position = state.selection.main.head;
+      const line = state.doc.lineAt(position);
+      selectionChange.current?.({ line: line.number, column: position - line.from + 1 });
+    };
+    const theme = new Compartment();
+    const darkTheme = () => (document.documentElement.classList.contains('dark') ? oneDark : []);
     const editor = new EditorView({
       parent: container.current,
       state: EditorState.create({
@@ -42,31 +53,42 @@ export default function CodeEditor({ source, draftId, onChange, ref }: Props) {
         },
         extensions: [
           EditorState.lineSeparator.of(initial.current.includes('\r\n') ? '\r\n' : '\n'),
+          basicSetup,
           markdown(),
-          history(),
-          lineNumbers(),
-          syntaxHighlighting(defaultHighlightStyle),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
           EditorView.lineWrapping,
           placeholder('写下你的想法…'),
           EditorView.contentAttributes.of({ 'aria-label': 'Markdown 源码', spellcheck: 'false', autocapitalize: 'off' }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) change.current(update.state.sliceDoc());
+            if (update.selectionSet || update.docChanged) reportSelection(update.state);
           }),
           EditorView.theme({
-            '&': { height: '100%' },
+            '&': { height: '100%', backgroundColor: 'hsl(var(--background))', color: 'hsl(var(--foreground))' },
             '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--editor-mono)' },
-            '.cm-content': { padding: '22px 18px', fontSize: 'var(--editor-code-size, 15px)', lineHeight: '1.85' },
+            '.cm-content': {
+              padding: '22px 18px',
+              fontSize: 'var(--editor-code-size, 15px)',
+              lineHeight: '1.85',
+              caretColor: 'hsl(var(--foreground))',
+            },
             '.cm-content span': { textDecoration: 'none' },
             '.cm-gutters': { background: 'transparent', border: 'none', color: 'hsl(var(--muted-foreground) / .45)' },
             '&.cm-focused': { outline: 'none' },
-            '.cm-cursor': { borderLeftColor: 'hsl(var(--primary))' },
+            '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'hsl(var(--foreground))', borderLeftWidth: '2px' },
+            '.cm-selectionHandle': { backgroundColor: 'hsl(var(--foreground))' },
+            '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'hsl(var(--primary) / .055)' },
+            '&.cm-focused .cm-selectionBackground': { backgroundColor: 'hsl(var(--primary) / .28)' },
           }),
+          theme.of(darkTheme()),
         ],
       }),
     });
     view.current = editor;
+    reportSelection(editor.state);
+    const observer = new MutationObserver(() => editor.dispatch({ effects: theme.reconfigure(darkTheme()) }));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => {
+      observer.disconnect();
       editor.destroy();
       view.current = null;
     };

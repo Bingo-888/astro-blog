@@ -11,6 +11,7 @@ interface Props {
 export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
   const frame = useRef<HTMLIFrameElement>(null);
   const baseline = useRef<string | null>(null);
+  const sessionDraftId = useRef<string | null>(null);
   const saving = useRef(false);
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
@@ -19,10 +20,19 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
 
   useEffect(() => {
     baseline.current = null;
+    sessionDraftId.current = null;
     let cancelled = false;
+    let opening = false;
+    let detached = false;
     const editorOrigin = new URL(DEV_SERVER_URL).origin;
     const send = (data: object) => frame.current?.contentWindow?.postMessage(data, editorOrigin);
     const open = async () => {
+      if (opening || detached) return;
+      if (baseline.current !== null) {
+        send({ type: 'koharu-cms-open', postId, source: baseline.current, restoreDraftId: sessionDraftId.current });
+        return;
+      }
+      opening = true;
       try {
         const response = await fetch(`/api/cms/source?postId=${encodeURIComponent(postId)}`);
         const data = await response.json();
@@ -30,9 +40,10 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
         if (cancelled) return;
         baseline.current = data.source;
         send({ type: 'koharu-cms-open', postId, source: data.source });
-        setReady(true);
       } catch (failure) {
         if (!cancelled) setError(failure instanceof Error ? failure.message : '无法读取文章');
+      } finally {
+        opening = false;
       }
     };
     const receive = async (event: MessageEvent) => {
@@ -41,11 +52,28 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
         await open();
         return;
       }
+      if (event.data?.type === 'koharu-cms-detach' && event.data.postId === postId) {
+        detached = true;
+        sessionDraftId.current = null;
+        return;
+      }
+      if (
+        !detached &&
+        event.data?.type === 'koharu-cms-opened' &&
+        event.data.postId === postId &&
+        typeof event.data.draftId === 'string'
+      ) {
+        sessionDraftId.current = event.data.draftId;
+        setError('');
+        setReady(true);
+        return;
+      }
       if (
         event.data?.type !== 'koharu-cms-save' ||
         event.data.postId !== postId ||
         typeof event.data.source !== 'string' ||
         baseline.current === null ||
+        detached ||
         saving.current
       )
         return;
@@ -87,10 +115,12 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       <div className="flex items-center justify-between gap-4 border-b px-4 py-2 text-sm">
-        <button type="button" onClick={onClose}>
+        <button type="button" className="shrink-0" onClick={onClose}>
           ← 返回文章列表
         </button>
-        <span className="text-muted-foreground">CMS · {postId}</span>
+        <span className="min-w-0 truncate text-muted-foreground" title={postId}>
+          CMS · {postId}
+        </span>
       </div>
       {error && (
         <div className="border-b bg-destructive/10 p-4 text-destructive text-sm" role="alert">
@@ -102,6 +132,7 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
         ref={frame}
         src={`${DEV_SERVER_URL}/editor`}
         title="Koharu 写作室"
+        allow="clipboard-write"
         className="min-h-0 w-full flex-1 border-0"
         sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-modals"
       />

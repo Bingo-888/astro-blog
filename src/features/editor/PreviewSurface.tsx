@@ -5,6 +5,7 @@ import ContentEnhancer from '@components/markdown/ContentEnhancer';
 import DiagramFullscreen from '@components/markdown/DiagramFullscreen';
 import ImageLightbox from '@components/markdown/ImageLightbox';
 import type { ContentConfig } from '@constants/content-config';
+import { useMediaQuery } from '@hooks/useMediaQuery';
 import { enhanceImages } from '@lib/image-enhancer';
 import DOMPurify from 'dompurify';
 import { useEffect, useRef, useState } from 'react';
@@ -38,12 +39,14 @@ function sanitizePreviewHtml(html: string): string {
     USE_PROFILES: { html: true, svg: true, mathMl: true },
     FORBID_TAGS: ['style', 'form', 'textarea', 'select'],
     ADD_ATTR: ['target'],
+    ADD_TAGS: ['spoiler-span'],
   });
 }
 
 export default function PreviewSurface({ config, author }: Props) {
   const [preview, setPreview] = useState<Preview>({ html: '', data: {}, headings: [], mode: 'body', version: 0 });
   const [error, setError] = useState('');
+  const widePreview = useMediaQuery('(min-width: 960px)');
   const container = useRef<HTMLDivElement>(null);
   const requested = useRef(0);
   const position = useRef(0);
@@ -149,8 +152,25 @@ export default function PreviewSurface({ config, author }: Props) {
         <main className="editor-article-grid">
           {preview.mode === 'article' && data.catalog !== false && preview.headings.length > 0 && (
             <aside className="editor-article-toc shadow-box" aria-label="文章目录">
-              <strong>文章目录</strong>
-              <TableOfContents key={`toc-${preview.version}`} defaultExpanded enableNumbering={data.tocNumbering !== false} />
+              {widePreview ? (
+                <>
+                  <strong>文章目录</strong>
+                  <TableOfContents
+                    key={`toc-${preview.version}`}
+                    defaultExpanded
+                    enableNumbering={data.tocNumbering !== false}
+                  />
+                </>
+              ) : (
+                <details className="editor-article-toc-disclosure">
+                  <summary>文章目录</summary>
+                  <TableOfContents
+                    key={`toc-${preview.version}`}
+                    defaultExpanded
+                    enableNumbering={data.tocNumbering !== false}
+                  />
+                </details>
+              )}
             </aside>
           )}
           <article className="editor-article-content bg-gradient-start shadow-box" key={preview.version}>
