@@ -66,9 +66,9 @@ export default function CodeEditor({ source, draftId, onChange, onSelectionChang
             '&': { height: '100%', backgroundColor: 'hsl(var(--background))', color: 'hsl(var(--foreground))' },
             '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--editor-mono)' },
             '.cm-content': {
-              padding: '22px 18px',
+              padding: '10px 12px',
               fontSize: 'var(--editor-code-size, 15px)',
-              lineHeight: '1.85',
+              lineHeight: '1.65',
               caretColor: 'hsl(var(--foreground))',
             },
             '.cm-content span': { textDecoration: 'none' },

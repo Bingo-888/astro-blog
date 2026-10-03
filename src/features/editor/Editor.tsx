@@ -40,6 +40,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
   const current = useRef(draft);
   current.current = draft;
   const parsed = useMemo(() => parseEditorDocument(draft.source), [draft.source]);
+  const articleTitle = typeof parsed.data.title === 'string' && parsed.data.title.trim() ? parsed.data.title : '未命名文章';
 
   useEffect(() => {
     try {
@@ -261,10 +262,16 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
           <small>写作室</small>
         </a>
         <div className="editor-document-name">
-          <strong>
-            {typeof parsed.data.title === 'string' && parsed.data.title.trim() ? parsed.data.title : '未命名文章'}
-          </strong>
-          <span>{cms ? `CMS · ${cms.postId}` : '只保存在你的浏览器'}</span>
+          <strong title={articleTitle}>{articleTitle}</strong>
+          <span className={cms ? 'editor-cms-context' : undefined} title={cms?.postId}>
+            {cms ? (
+              <>
+                CMS<span className="editor-cms-filename"> · {cms.postId}</span>
+              </>
+            ) : (
+              '只保存在你的浏览器'
+            )}
+          </span>
         </div>
         <div className="editor-header-actions">
           {action('copy', '复制', (event) => {
@@ -377,7 +384,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
         </section>
       </div>
       <footer className="editor-status">
-        <output>{status || '开始写作，草稿将自动保存'}</output>
+        <output>{status || '草稿会自动保存在此浏览器'}</output>
         <span className="editor-toolbar-hint">工具栏可横滑</span>
         <span>{draft.source.length.toLocaleString()} 字符</span>
         <a href="/post/note/shoka-features" target="_blank" rel="noreferrer">

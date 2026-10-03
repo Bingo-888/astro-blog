@@ -36,6 +36,11 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(new URL('/editor', origin).href, { waitUntil: 'domcontentloaded' });
   await page.locator('.cm-content').waitFor();
+  const statusBounds = await page.locator('.editor-status').boundingBox();
+  for (const selector of ['.editor-source-pane', '.editor-preview-pane']) {
+    const bounds = await page.locator(selector).boundingBox();
+    assert.ok(bounds.y + bounds.height <= statusBounds.y + 1, `${selector}: the last editable line must clear the status bar`);
+  }
   await page
     .locator('input[type=file]')
     .setInputFiles({ name: '完整原文.md', mimeType: 'text/markdown', buffer: Buffer.from(source) });

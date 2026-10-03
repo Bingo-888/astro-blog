@@ -27,44 +27,49 @@
 .editor-header {
   display: flex;
   align-items: center;
-  gap: 24px;
-  min-height: 76px;
-  padding: 12px 24px;
+  gap: 14px;
+  min-height: 40px;
+  padding: 3px 16px;
   background: var(--gradient-header);
   border-bottom: 1px solid hsl(var(--border));
 }
 
 .editor-brand {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
   line-height: 1.1;
 }
 .editor-brand > span {
   font-family: "Bear Days", sans-serif;
-  font-size: 30px;
+  font-size: 24px;
   color: hsl(var(--primary));
 }
 .editor-brand > small {
-  letter-spacing: 0.3em;
-  font-size: 11px;
-  padding-inline-start: 2px;
-  margin-top: 3px;
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
 }
 .editor-document-name {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   min-width: 0;
-  gap: 4px;
+  gap: 10px;
   flex: 1;
 }
 .editor-document-name strong {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 16px;
+  font-size: 14px;
 }
 .editor-document-name > span {
+  max-width: 28ch;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: hsl(var(--muted-foreground));
   font-size: 11px;
 }
@@ -136,13 +141,42 @@
   background: hsl(var(--primary) / 0.9);
   color: hsl(var(--primary-foreground));
 }
+.editor-header-actions {
+  flex-shrink: 0;
+}
+.editor-header-actions .editor-button {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 5px 8px;
+  border-radius: 6px;
+}
+.editor-header-actions .editor-button svg,
+.editor-toolbar .editor-button svg,
+.editor-toolbar .editor-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+.editor-toolbar .editor-tools {
+  gap: 2px;
+}
+.editor-toolbar .editor-button,
+.editor-toolbar .editor-icon-button {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 3px 7px;
+  border-radius: 5px;
+}
+.editor-toolbar .editor-icon-button {
+  padding: 4px;
+}
 .editor-toolbar {
   display: flex;
   flex-shrink: 0;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 6px 16px;
+  min-height: 34px;
+  padding: 2px 12px;
   border-bottom: 1px solid hsl(var(--border));
   overflow-x: auto;
   scrollbar-width: thin;
@@ -151,7 +185,7 @@
   flex-shrink: 0;
 }
 .editor-divider {
-  height: 22px;
+  height: 18px;
   width: 1px;
   background: hsl(var(--border));
   margin-inline: 5px;
@@ -160,6 +194,7 @@
 .editor-panes {
   display: grid;
   grid-template-columns: minmax(0, var(--editor-split, 50%)) 7px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
 }
@@ -172,10 +207,10 @@
 }
 .editor-pane-heading {
   display: flex;
-  min-height: 42px;
+  min-height: 28px;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 18px;
+  padding: 0 12px;
   color: hsl(var(--muted-foreground));
   font-size: 11px;
   border-bottom: 1px solid hsl(var(--border) / 0.5);
@@ -186,6 +221,7 @@
 }
 .editor-pane-heading small {
   font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
 .editor-code {
   flex: 1;
@@ -205,6 +241,7 @@
 }
 .editor-resizer {
   position: relative;
+  min-height: 0;
   background: hsl(var(--border) / 0.3);
   cursor: col-resize;
 }
@@ -252,16 +289,17 @@
 }
 .editor-segmented {
   display: flex;
-  padding: 2px;
+  padding: 1px;
   gap: 2px;
   border-radius: 7px;
   background: hsl(var(--muted));
 }
 .editor-segmented button {
+  min-height: 24px;
   border-radius: 5px;
-  padding: 4px 8px;
+  padding: 2px 7px;
   color: hsl(var(--muted-foreground));
-  font-size: 10px;
+  font-size: 11px;
 }
 .editor-segmented button[aria-pressed="true"] {
   color: hsl(var(--primary));
@@ -273,10 +311,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 30px;
-  padding: 6px 18px;
+  min-height: 24px;
+  padding: 3px 12px;
   border-top: 1px solid hsl(var(--border));
-  font-size: 10px;
+  font-size: 11px;
   color: hsl(var(--muted-foreground));
 }
 .editor-status a {
@@ -523,7 +561,7 @@
   background: var(--gradient-bg);
 }
 .editor-body-preview {
-  padding: 16px 12px;
+  padding: 8px 0;
 }
 .editor-article-content {
   padding: 24px 28px;
@@ -533,7 +571,7 @@
 .editor-body-preview .editor-article-content {
   box-shadow: none;
   background: transparent;
-  padding: 12px 20px;
+  padding: 8px 16px;
 }
 .editor-article-cover {
   height: 260px;
@@ -641,7 +679,27 @@
     display: none;
   }
   .editor-view-tools .editor-button {
-    padding-inline: 9px;
+    padding-inline: 4px;
+  }
+}
+@media (pointer: coarse) {
+  .editor-workspace {
+    --editor-code-size: 16px;
+  }
+  .editor-header {
+    min-height: 48px;
+    padding-block: 2px;
+  }
+  .editor-header-actions .editor-button,
+  .editor-toolbar .editor-button,
+  .editor-toolbar .editor-icon-button,
+  .editor-segmented button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .editor-toolbar,
+  .editor-preview-pane .editor-pane-heading {
+    min-height: 48px;
   }
 }
 @media (width <= 800px) {
@@ -650,24 +708,25 @@
   }
   .editor-header {
     order: 0;
-    min-height: 62px;
-    gap: 12px;
-    padding: 8px 12px;
+    min-height: 48px;
+    gap: 8px;
+    padding: 2px 8px;
   }
   .editor-brand > span {
-    font-size: 25px;
+    font-size: 22px;
   }
   .editor-brand > small {
-    font-size: 9px;
+    display: none;
   }
   .editor-document-name strong {
     font-size: 14px;
   }
-  .editor-document-name > span {
-    font-size: 9px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .editor-document-name > span:not(.editor-cms-context),
+  .editor-cms-filename {
+    display: none;
+  }
+  .editor-document-name {
+    gap: 6px;
   }
   .editor-header-actions .editor-button {
     min-height: 44px;
@@ -676,6 +735,15 @@
   }
   .editor-header-actions .editor-button span {
     display: none;
+  }
+  .editor-preview-pane .editor-pane-heading {
+    min-height: 48px;
+  }
+  .editor-segmented button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 6px 8px;
+    font-size: 12px;
   }
   .editor-panes {
     order: 1;
@@ -720,7 +788,7 @@
     order: 3;
     min-height: 24px;
     padding: 3px 12px;
-    font-size: 9px;
+    font-size: 10px;
   }
   .editor-status a {
     display: none;
@@ -768,10 +836,10 @@
     order: 0;
   }
   .editor-body-preview {
-    padding: 12px 0;
+    padding: 6px 0;
   }
   .editor-body-preview .editor-article-content {
-    padding: 12px 18px;
+    padding: 6px 14px;
   }
   .editor-article .editor-article-grid {
     margin: 12px 8px;
