@@ -1,0 +1,139 @@
+// Run with the blog dev server and optional CMS already running; this script never starts servers.
+// EDITOR_TEST_URL=http://localhost:4321 CMS_TEST_URL=http://localhost:4322 node tests/editor/workbench.browser.mjs
+import assert from 'node:assert/strict';
+import { readFile, rm, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { chromium, expect } from '@playwright/test';
+
+const origin = new URL(process.env.EDITOR_TEST_URL ?? 'http://localhost:4321');
+const browser = await chromium.launch();
+const errors = [];
+const source =
+  '\uFEFF---\r\ntitle: "浏览器验收文章" # 原有注释\r\ndate: 2026-10-03 12:00:00\r\ncustom: null\r\ntags: [验收]\r\n---\r\n\r\n## 验收标题\r\n\r\n++中文强调++\r\n\r\n:::info\r\n保留完整原文\r\n:::\r\n';
+const fixtureId = `_editor-browser-${process.pid}.md`;
+const fixturePath = fileURLToPath(new URL(`../../src/content/blog/${fixtureId}`, import.meta.url));
+
+async function append(scope, text) {
+  const input = scope.locator('.cm-content');
+  await input.click();
+  await input.press('ControlOrMeta+a');
+  await input.press('ArrowRight');
+  await input.press('Enter');
+  await input.pressSequentially(text);
+}
+
+async function cachedSource(scope) {
+  return scope.evaluate(() => {
+    const id = localStorage.getItem('koharu-editor:active:v1');
+    return JSON.parse(localStorage.getItem(`koharu-editor:draft:${id}`)).source;
+  });
+}
+
+try {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 940 } });
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: origin.origin });
+  const page = await context.newPage();
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(new URL('/editor', origin).href, { waitUntil: 'domcontentloaded' });
+  await page.locator('.cm-content').waitFor();
+  await page
+    .locator('input[type=file]')
+    .setInputFiles({ name: '完整原文.md', mimeType: 'text/markdown', buffer: Buffer.from(source) });
+  const preview = page.locator('iframe[title="实际博文实时预览"]').contentFrame();
+  await expect(preview.locator('.custom-content h2')).toContainText('验收标题');
+  await expect(preview.locator('.custom-content ins')).toContainText('中文强调');
+  assert.equal(await page.getByRole('button', { name: '保存到博客' }).count(), 0);
+  await page.getByRole('button', { name: '复制', exact: true }).click();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), source);
+  const downloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: '下载 MD', exact: true }).click();
+  const download = await downloadEvent;
+  assert.equal(await readFile(await download.path(), 'utf8'), source);
+  await page.waitForTimeout(700);
+  await append(page, '中文输入新增');
+  // Open the currently active draft synchronously within the autosave debounce window.
+  await page.getByRole('button', { name: '草稿', exact: true }).evaluate((button) => {
+    if (button instanceof HTMLElement) button.click();
+  });
+  await page
+    .locator('.editor-draft-row button')
+    .filter({ hasText: '浏览器验收文章' })
+    .evaluate((button) => {
+      if (button instanceof HTMLElement) button.click();
+    });
+  await expect(page.locator('.cm-content')).toContainText('中文输入新增');
+  await page.waitForTimeout(700);
+  const changed = await cachedSource(page);
+  assert.ok(changed.includes('\r\n中文输入新增'));
+  assert.ok(changed.startsWith('\uFEFF---\r\n'));
+  await page.getByRole('button', { name: '新建', exact: true }).click();
+  await page.waitForTimeout(700);
+  await page.getByRole('button', { name: '草稿', exact: true }).click();
+  await page.locator('.editor-draft-row button').filter({ hasText: '浏览器验收文章' }).click();
+  await expect(page.locator('.cm-content')).toContainText('中文输入新增');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('.cm-content')).toContainText('中文输入新增');
+  await page.getByRole('button', { name: '完整文章', exact: true }).click();
+  await expect(preview.locator('.editor-article-cover h1')).toContainText('浏览器验收文章');
+  await page.screenshot({ path: '/private/tmp/editor-verified-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  await expect(page.locator('.editor-preview-pane')).toBeVisible();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+  await page.getByRole('button', { name: '语法', exact: true }).click();
+  await page.getByRole('searchbox').fill('标签卡');
+  await page.locator('.editor-syntax-toggle').click();
+  await page.getByRole('button', { name: '插入模板', exact: true }).click();
+  await expect(page.locator('.cm-content')).toContainText(';;;example 第一页');
+  await expect(page.locator('.editor-source-pane')).toBeVisible();
+  await page.screenshot({ path: '/private/tmp/editor-verified-mobile.png' });
+  await page.setViewportSize({ width: 320, height: 568 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320);
+  assert.ok((await page.locator('.editor-source-pane').boundingBox()).height > 200);
+  console.log(
+    'PASS public: exact copy/download, CRLF/BOM editing, current-draft race, multiple drafts/reload, full article, mobile 390/320 and syntax insertion',
+  );
+
+  if (process.env.CMS_TEST_URL) {
+    await writeFile(fixturePath, source);
+    const cms = await context.newPage();
+    cms.on('pageerror', (error) => errors.push(error.message));
+    await cms.goto(process.env.CMS_TEST_URL, { waitUntil: 'domcontentloaded' });
+    await cms.getByRole('button', { name: 'posts', exact: true }).click();
+    const row = cms.locator('tr').filter({ hasText: '浏览器验收文章' });
+    await row.getByTitle('Edit post', { exact: true }).click();
+    const editor = cms.locator('iframe[title="Koharu 写作室"]').contentFrame();
+    await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toBeVisible({ timeout: 20_000 });
+    await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
+    await expect(editor.locator('.editor-status')).toContainText('已保存到博客文件');
+    assert.equal(await readFile(fixturePath, 'utf8'), source);
+    await append(editor, 'CMS新增');
+    await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
+    await expect(editor.locator('.editor-status')).toContainText('已保存到博客文件');
+    const saved = await readFile(fixturePath, 'utf8');
+    assert.ok(saved.startsWith('\uFEFF---\r\n') && saved.includes('custom: null'));
+    assert.ok(saved.includes('\r\nCMS新增'));
+    const external = `${saved}\r\n外部工具更新\r\n`;
+    await writeFile(fixturePath, external);
+    await append(editor, '冲突未覆盖');
+    await editor.getByRole('button', { name: '保存到博客', exact: true }).click();
+    await expect(editor.getByRole('alert')).toContainText('其他');
+    assert.equal(await readFile(fixturePath, 'utf8'), external);
+    await cms.waitForTimeout(700);
+    await editor.getByRole('button', { name: '草稿', exact: true }).click();
+    cms.once('dialog', (dialog) => dialog.accept());
+    await editor
+      .locator('.editor-draft-row[data-current="true"]')
+      .getByRole('button', { name: '删除草稿 浏览器验收文章', exact: true })
+      .click();
+    await expect(editor.getByRole('button', { name: '保存到博客', exact: true })).toHaveCount(0);
+    assert.equal(await readFile(fixturePath, 'utf8'), external);
+    console.log(
+      'PASS CMS: shared editor, exact no-op save, CRLF editing, external conflict, deletion clears file-save context',
+    );
+  }
+  assert.deepEqual(errors, [], 'no uncaught browser errors');
+} finally {
+  await rm(fixturePath, { force: true });
+  await browser.close();
+}

@@ -1,0 +1,479 @@
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import CodeEditor, { type CodeEditorHandle } from './components/CodeEditor';
+import EditorIcon from './components/EditorIcon';
+import PreviewFrame from './components/PreviewFrame';
+import SyntaxPanel from './components/SyntaxPanel';
+import { createEditorSource, documentTitle, markdownFilename, parseEditorDocument, updateEditorProperty } from './document';
+import { activeDraft, type DraftSummary, type EditorDraft, listDrafts, readDraft, removeDraft, writeDraft } from './storage';
+import { syntaxEntries } from './syntax';
+
+type Panel = 'drafts' | 'syntax' | 'properties' | null;
+interface Props {
+  ogEndpoint?: string;
+}
+
+function createDraft(source = createEditorSource(), filename?: string): EditorDraft {
+  return { id: crypto.randomUUID(), title: documentTitle(source), source, updated: Date.now(), filename };
+}
+
+export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
+  const [draft, setDraft] = useState<EditorDraft>(() => createDraft());
+  const [drafts, setDrafts] = useState<DraftSummary[]>([]);
+  const [initialized, setInitialized] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null);
+  const [tab, setTab] = useState<'edit' | 'preview'>('edit');
+  const [mode, setMode] = useState<'body' | 'article'>('body');
+  const [focus, setFocus] = useState(false);
+  const [split, setSplit] = useState(50);
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
+  const [cms, setCMS] = useState<{ origin: string; postId: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const editor = useRef<CodeEditorHandle>(null);
+  const importInput = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const current = useRef(draft);
+  current.current = draft;
+  const parsed = useMemo(() => parseEditorDocument(draft.source), [draft.source]);
+
+  useEffect(() => {
+    try {
+      setDrafts(listDrafts(localStorage));
+      const previous = activeDraft(localStorage);
+      if (previous) setDraft(previous);
+    } catch {
+      setError('浏览器存储不可用，请及时复制或下载文章。');
+    }
+    setInitialized(true);
+    const receive = (event: MessageEvent) => {
+      if (!import.meta.env.DEV || event.source !== window.parent || window.parent === window) return;
+      const origin = new URL(event.origin);
+      if (!['localhost', '127.0.0.1'].includes(origin.hostname) || origin.port !== '4322') return;
+      if (
+        event.data?.type === 'koharu-cms-open' &&
+        typeof event.data.source === 'string' &&
+        typeof event.data.postId === 'string'
+      ) {
+        setCMS({ origin: event.origin, postId: event.data.postId });
+        setDraft(createDraft(event.data.source, event.data.postId));
+        setStatus('已从 CMS 打开文章');
+      }
+      if (event.data?.type === 'koharu-cms-result') {
+        setSaving(false);
+        if (event.data.error) setError(event.data.error);
+        else setStatus('已保存到博客文件');
+      }
+    };
+    window.addEventListener('message', receive);
+    if (import.meta.env.DEV && window.parent !== window && document.referrer) {
+      const origin = new URL(document.referrer);
+      if (['localhost', '127.0.0.1'].includes(origin.hostname) && origin.port === '4322')
+        window.parent.postMessage({ type: 'koharu-editor-ready' }, origin.origin);
+    }
+    return () => window.removeEventListener('message', receive);
+  }, []);
+
+  useEffect(() => {
+    if (!initialized) return;
+    const persist = () => {
+      try {
+        const value = draft;
+        writeDraft(localStorage, { ...value, title: documentTitle(value.source), updated: Date.now() });
+        setDrafts(listDrafts(localStorage));
+        setStatus('草稿已保存在此浏览器');
+      } catch {
+        setError('浏览器存储已满或不可用。当前文章仍在编辑器中，请复制或下载。');
+      }
+    };
+    const timer = window.setTimeout(persist, 600);
+    const flush = () => {
+      if (document.visibilityState === 'hidden') persist();
+    };
+    document.addEventListener('visibilitychange', flush);
+    window.addEventListener('pagehide', persist);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', flush);
+      window.removeEventListener('pagehide', persist);
+    };
+  }, [initialized, draft]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const resize = () =>
+      document.documentElement.style.setProperty('--editor-height', `${viewport?.height ?? window.innerHeight}px`);
+    resize();
+    viewport?.addEventListener('resize', resize);
+    return () => {
+      viewport?.removeEventListener('resize', resize);
+      document.documentElement.style.removeProperty('--editor-height');
+    };
+  }, []);
+
+  useEffect(() => {
+    if (panel && dialog.current && !dialog.current.open) dialog.current.showModal();
+  }, [panel]);
+
+  const flushDraft = () => {
+    try {
+      writeDraft(localStorage, { ...current.current, title: documentTitle(current.current.source), updated: Date.now() });
+      return true;
+    } catch {
+      setError('无法保存当前草稿，请先复制或下载再切换文章。');
+      return false;
+    }
+  };
+  const activate = (value: EditorDraft) => {
+    if (value.id === current.current.id) {
+      setPanel(null);
+      return;
+    }
+    if (!flushDraft()) return;
+    setCMS(null);
+    setSaving(false);
+    setDraft(value);
+    setError('');
+    setPanel(null);
+  };
+  const insert = (source: string) => {
+    setPanel(null);
+    setTab('edit');
+    requestAnimationFrame(() => editor.current?.insert(source));
+  };
+  const setProperty = (key: string, value: unknown) => {
+    try {
+      setDraft((previous) => ({ ...previous, source: updateEditorProperty(previous.source, key, value) }));
+      setError('');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : '无法更新文章属性');
+    }
+  };
+
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([draft.source], { type: 'text/markdown;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = draft.filename?.split('/').pop() || markdownFilename(draft.source);
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setStatus('已下载完整 Markdown');
+  };
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(draft.source);
+      setStatus('已复制完整 Markdown');
+    } catch {
+      setError('无法访问剪贴板，请选中源码复制，或下载 Markdown 文件。');
+    }
+  };
+  const saveCMS = () => {
+    if (!cms || saving) return;
+    setSaving(true);
+    setStatus('正在保存到博客…');
+    setError('');
+    window.parent.postMessage({ type: 'koharu-cms-save', postId: cms.postId, source: draft.source }, cms.origin);
+  };
+  const loadExample = async () => {
+    const { default: source } = await import('../../content/blog/note/shoka-features.md?raw');
+    activate(createDraft(source, 'shoka-features.md'));
+  };
+
+  const action = (name: string, label: string, onClick: () => void, extra = '') => (
+    <button type="button" className={`editor-button ${extra}`} onClick={onClick} title={label} aria-label={label}>
+      <EditorIcon name={name} />
+      <span>{label}</span>
+    </button>
+  );
+
+  return (
+    <div
+      className={`editor-workspace ${focus ? 'editor-focus' : ''}`}
+      data-tab={tab}
+      style={{ '--editor-split': `${split}%` } as CSSProperties}
+    >
+      <header className="editor-header">
+        <a className="editor-brand" href="/">
+          <span>Koharu</span>
+          <small>写作室</small>
+        </a>
+        <div className="editor-document-name">
+          <strong>
+            {typeof parsed.data.title === 'string' && parsed.data.title.trim() ? parsed.data.title : '未命名文章'}
+          </strong>
+          <span>{cms ? `CMS · ${cms.postId}` : '只保存在你的浏览器'}</span>
+        </div>
+        <div className="editor-header-actions">
+          {action('copy', '复制', () => {
+            void copy();
+          })}
+          {action('download', '下载 MD', download, 'editor-primary')}
+          {cms && (
+            <button type="button" className="editor-button editor-primary" onClick={saveCMS} disabled={saving}>
+              <EditorIcon name="save" />
+              <span>{saving ? '保存中…' : '保存到博客'}</span>
+            </button>
+          )}
+        </div>
+      </header>
+      <div className="editor-toolbar">
+        <div className="editor-tools">
+          {action('draft', '草稿', () => setPanel(panel === 'drafts' ? null : 'drafts'))}
+          {action('new', '新建', () => activate(createDraft()))}
+          {action('import', '导入', () => importInput.current?.click())}
+          <span className="editor-divider" />
+          {['bold', 'italic', 'heading', 'link', 'image', 'note', 'code', 'formula'].map((id) => {
+            const entry = syntaxEntries.find((item) => item.id === id);
+            return (
+              entry && (
+                <button
+                  key={id}
+                  type="button"
+                  className="editor-icon-button"
+                  title={entry.label}
+                  aria-label={`插入${entry.label}`}
+                  onClick={() => insert(entry.source)}
+                >
+                  <EditorIcon name={id} />
+                </button>
+              )
+            );
+          })}
+          {action('help', '语法手册', () => setPanel(panel === 'syntax' ? null : 'syntax'))}
+        </div>
+        <div className="editor-tools editor-view-tools">
+          {action('undo', '撤销', () => editor.current?.undo())}
+          {action('redo', '重做', () => editor.current?.redo())}
+          {action('settings', '文章属性', () => setPanel(panel === 'properties' ? null : 'properties'))}
+          <button type="button" className="editor-button" aria-pressed={focus} onClick={() => setFocus(!focus)}>
+            <EditorIcon name="edit" />
+            <span>{focus ? '退出专注' : '专注'}</span>
+          </button>
+        </div>
+      </div>
+      {error && (
+        <div className="editor-error" role="alert">
+          {error}
+          <button type="button" aria-label="关闭提示" onClick={() => setError('')}>
+            ×
+          </button>
+        </div>
+      )}
+      <div className="editor-panes">
+        <section className="editor-source-pane" aria-label="源码编辑区">
+          <div className="editor-pane-heading">
+            <span>Markdown</span>
+            <small>原文编辑 · 保留全部语法</small>
+          </div>
+          <CodeEditor
+            ref={editor}
+            source={draft.source}
+            draftId={draft.id}
+            onChange={(source) => setDraft((previous) => ({ ...previous, source }))}
+          />
+        </section>
+        <div className="editor-resizer">
+          <input
+            type="range"
+            min="28"
+            max="72"
+            value={split}
+            onChange={(event) => setSplit(Number(event.target.value))}
+            aria-label="调整源码与预览宽度"
+          />
+        </div>
+        <section className="editor-preview-pane" aria-label="实时预览区">
+          <div className="editor-pane-heading">
+            <span>实时预览</span>
+            <div className="editor-segmented">
+              <button type="button" aria-pressed={mode === 'body'} onClick={() => setMode('body')}>
+                正文
+              </button>
+              <button type="button" aria-pressed={mode === 'article'} onClick={() => setMode('article')}>
+                完整文章
+              </button>
+            </div>
+          </div>
+          <PreviewFrame source={draft.source} mode={mode} ogEndpoint={ogEndpoint} />
+        </section>
+      </div>
+      <footer className="editor-status">
+        <output>{status || '开始写作，草稿将自动保存'}</output>
+        <span className="editor-toolbar-hint">工具栏可横滑</span>
+        <span>{draft.source.length.toLocaleString()} 字符</span>
+        <a href="/post/note/shoka-features" target="_blank" rel="noreferrer">
+          Shoka 语法演示 ↗
+        </a>
+      </footer>
+      <nav className="editor-mobile-tabs" aria-label="编辑与预览">
+        <button type="button" aria-pressed={tab === 'edit'} onClick={() => setTab('edit')}>
+          <EditorIcon name="edit" />
+          编辑
+        </button>
+        <button type="button" aria-pressed={tab === 'preview'} onClick={() => setTab('preview')}>
+          <EditorIcon name="preview" />
+          预览
+        </button>
+        <button type="button" onClick={() => setPanel('syntax')}>
+          <EditorIcon name="help" />
+          语法
+        </button>
+        <button type="button" onClick={() => setPanel('properties')}>
+          <EditorIcon name="settings" />
+          属性
+        </button>
+      </nav>
+      <input
+        ref={importInput}
+        type="file"
+        accept=".md,.markdown,text/markdown,text/plain"
+        hidden
+        onChange={async (event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            if (file.size > 5 * 1024 * 1024) setError('请导入小于 5 MB 的 Markdown 文件');
+            else {
+              try {
+                const source = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await file.arrayBuffer());
+                activate(createDraft(source, file.name));
+              } catch {
+                setError('文件无法读取，请使用 UTF-8 编码的 Markdown 文件。');
+              }
+            }
+          }
+          event.target.value = '';
+        }}
+      />
+      {panel && (
+        <dialog
+          ref={dialog}
+          className="editor-panel-backdrop"
+          aria-label={panel === 'syntax' ? '语法手册' : panel === 'drafts' ? '浏览器草稿' : '文章属性'}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setPanel(null);
+          }}
+          onCancel={() => setPanel(null)}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setPanel(null);
+          }}
+        >
+          <aside className="editor-panel">
+            {panel === 'syntax' ? (
+              <SyntaxPanel
+                onInsert={insert}
+                onClose={() => setPanel(null)}
+                renderExample={(source) => <PreviewFrame source={source} example ogEndpoint={ogEndpoint} />}
+              />
+            ) : (
+              <>
+                <div className="editor-panel-header">
+                  <h2>{panel === 'drafts' ? '你的草稿' : '文章属性'}</h2>
+                  <button type="button" className="editor-icon-button" aria-label="关闭面板" onClick={() => setPanel(null)}>
+                    <EditorIcon name="close" />
+                  </button>
+                </div>
+                {panel === 'drafts' ? (
+                  <div className="editor-panel-content">
+                    <p className="editor-muted">这些草稿只存在当前浏览器，下载 Markdown 可以带走完整原文。</p>
+                    <div className="editor-draft-actions">
+                      {action('new', '新建文章', () => activate(createDraft()))}
+                      {action('help', '载入 Shoka 示例', () => {
+                        void loadExample();
+                      })}
+                    </div>
+                    {drafts.map((entry) => (
+                      <div key={entry.id} className="editor-draft-row" data-current={entry.id === draft.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const value = readDraft(localStorage, entry.id);
+                            if (value) activate(value);
+                            else setError('草稿不存在或已损坏，请检查本地备份。');
+                          }}
+                        >
+                          <strong>{entry.title}</strong>
+                          <small>
+                            {entry.id === draft.id ? '当前文章 · ' : ''}
+                            {new Date(entry.updated).toLocaleString()}
+                          </small>
+                        </button>
+                        <button
+                          type="button"
+                          className="editor-icon-button"
+                          aria-label={`删除草稿 ${entry.title}`}
+                          onClick={() => {
+                            if (!window.confirm(`删除「${entry.title}」的浏览器草稿？`)) return;
+                            try {
+                              removeDraft(localStorage, entry.id);
+                              setDrafts(listDrafts(localStorage));
+                              if (entry.id === draft.id) {
+                                setCMS(null);
+                                setSaving(false);
+                                setError('');
+                                setDraft(createDraft());
+                              }
+                            } catch {
+                              setError('无法删除草稿');
+                            }
+                          }}
+                        >
+                          <EditorIcon name="delete" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="editor-panel-content">
+                    <p className="editor-muted">与源码中的 YAML 同步。自定义字段可以直接在源码中编辑。</p>
+                    {parsed.error && <p className="editor-error">{parsed.error}</p>}
+                    {['title', 'date', 'updated', 'cover', 'description'].map((key) => (
+                      <label key={key} className="editor-field">
+                        <span>
+                          {
+                            { title: '标题', date: '发布时间', updated: '更新时间', cover: '封面网址', description: '摘要' }[
+                              key
+                            ]
+                          }
+                        </span>
+                        <input
+                          value={typeof parsed.data[key] === 'string' ? (parsed.data[key] as string) : ''}
+                          onChange={(event) => setProperty(key, event.target.value)}
+                        />
+                      </label>
+                    ))}
+                    {['tags', 'categories'].map((key) => (
+                      <label key={key} className="editor-field">
+                        <span>{key === 'tags' ? '标签' : '分类'}（以逗号分隔）</span>
+                        <input
+                          value={Array.isArray(parsed.data[key]) ? (parsed.data[key] as unknown[]).flat().join(', ') : ''}
+                          onChange={(event) =>
+                            setProperty(
+                              key,
+                              event.target.value
+                                .split(/[,，]/)
+                                .map((value) => value.trim())
+                                .filter(Boolean),
+                            )
+                          }
+                        />
+                      </label>
+                    ))}
+                    {['draft', 'catalog', 'tocNumbering'].map((key) => (
+                      <label key={key} className="editor-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={key === 'draft' ? parsed.data[key] === true : parsed.data[key] !== false}
+                          onChange={(event) => setProperty(key, event.target.checked)}
+                        />
+                        <span>{{ draft: '标记为草稿', catalog: '显示目录', tocNumbering: '目录自动编号' }[key]}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </aside>
+        </dialog>
+      )}
+    </div>
+  );
+}
