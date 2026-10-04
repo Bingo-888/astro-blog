@@ -23,38 +23,15 @@ export function SeriesPostList({ posts, currentPostSlug, className, locale }: Se
   }
 
   return (
-    <div className={cn('flex flex-col gap-1 md:pb-3 md:pl-2', className)} data-series-list>
+    <div className={cn('series-thread', className)} data-series-list>
       {posts.map((post) => {
         const href = localizedPath(routeBuilder(Routes.Post, post), locale);
         const isActive = post.slug === currentPostSlug;
 
         return (
-          <a
-            key={post.slug}
-            href={href}
-            className={cn(
-              'group relative flex items-center gap-3 rounded-md px-1 py-2 transition-colors',
-              'hover:bg-accent/50',
-              isActive && 'font-medium text-primary',
-            )}
-          >
-            {/* 圆点指示器 */}
-            <span
-              className={cn(
-                'size-2 shrink-0 rounded-full transition-colors',
-                isActive ? 'bg-primary' : 'bg-muted-foreground/40 group-hover:bg-muted-foreground/60',
-              )}
-            />
-
-            {/* 文章标题 */}
-            <span
-              className={cn(
-                'line-clamp-2 flex-1 text-sm leading-relaxed transition-colors',
-                isActive ? 'text-primary' : 'text-foreground group-hover:text-primary',
-              )}
-            >
-              {post.title}
-            </span>
+          <a key={post.slug} href={href} className="series-thread-item" aria-current={isActive ? 'page' : undefined}>
+            <span className="series-thread-bead" aria-hidden="true" />
+            <span className="series-thread-title">{post.title}</span>
           </a>
         );
       })}
