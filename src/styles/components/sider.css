@@ -589,13 +589,19 @@ span.series-progress-arrow {
   color: hsl(var(--muted-foreground) / 0.3);
 }
 
-/* Each tick owns an equal slice of the rail at full height, so the pointer always targets the nearest post. */
+/*
+  Each tick owns an equal slice of the rail at full height, so the pointer always targets the nearest
+  post. Slices stop growing at 1.25rem: a short series gathers in the middle like pagination dots
+  instead of stretching thin across the track; a long one fills it.
+*/
 .series-progress-rail {
   position: relative;
   display: flex;
-  flex: 1;
+  flex: 0 1 auto;
+  width: calc(var(--tick-count) * 1.25rem);
   min-width: 0;
   height: 2.25rem;
+  margin-inline: auto;
 }
 
 .series-progress-rail::before {
@@ -637,36 +643,72 @@ span.series-progress-arrow {
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+  Each post is a petal strung on the thread, leaning alternately like petals that drifted onto it.
+  --wave (0 at rest → 1.6 under the pointer) is a breeze: nearby petals swell, lift and turn upright.
+*/
+.series-progress-rail > li:nth-child(odd) {
+  --lean: -32deg;
+}
+
+.series-progress-rail > li:nth-child(even) {
+  --lean: 24deg;
+}
+
 .series-progress-tick::before {
+  --gust: calc((var(--wave, 1) - 1) / 1.6);
   content: "";
-  width: 2px;
-  height: 0.625rem;
-  border-radius: 1px;
-  background: hsl(var(--foreground) / 0.2);
-  scale: 1 var(--wave, 1);
+  width: 0.5rem;
+  height: 0.6rem;
+  background: hsl(var(--foreground) / 0.22);
+  mask: var(--petal-mask) center / contain no-repeat;
+  rotate: calc(var(--lean, 0deg) * (1 - var(--gust)));
+  scale: calc(1 + var(--gust) * 0.9);
+  translate: 0 calc(var(--gust) * -2.5px);
   transition:
-    scale 220ms var(--ease-out-quart),
+    rotate 360ms var(--ease-out-quart),
+    scale 260ms var(--ease-out-quart),
+    translate 260ms var(--ease-out-quart),
     background-color 160ms var(--ease-out-quart);
 }
 
 .series-progress-tick[data-read]::before {
-  background: hsl(var(--primary) / 0.45);
+  background: hsl(var(--primary) / 0.5);
 }
 
-/* This post: a bead on the thread, the "you are here" of the ruler. */
+/* A dense rail stands its petals upright as slender slivers that stretch, rather than widen, in the breeze. */
+.series-progress-rail[data-dense] > li {
+  --lean: 0deg;
+}
+
+.series-progress-rail[data-dense] .series-progress-tick:not([aria-current])::before {
+  width: min(0.375rem, 85%);
+  height: 0.75rem;
+  mask-size: 100% 100%;
+  scale: 1 calc(1 + var(--gust) * 1.9);
+  translate: none;
+}
+
+/* This post: a whole petal lying on the thread, the same mark the TOC uses for the reading position. */
 .series-progress-tick[aria-current="page"]::before {
-  width: 0.5625rem;
-  height: 0.5625rem;
-  border-radius: 9999px;
-  background: hsl(var(--primary));
-  box-shadow:
-    0 0 0 3px var(--sider-surface),
-    0 0 0 4.5px hsl(var(--primary) / 0.3);
-  scale: calc(1 + (var(--wave, 1) - 1) * 0.25);
+  width: 0.75rem;
+  height: 0.9rem;
+  background: linear-gradient(#ffc5d4, #ef7396);
+  filter: drop-shadow(0 0 3px hsl(var(--primary) / 0.5));
+  rotate: calc(-18deg * (1 - var(--gust)));
+  scale: calc(1 + var(--gust) * 0.3);
+}
+
+.dark .series-progress-tick[aria-current="page"]::before {
+  background: linear-gradient(#ffe0e9, #f7879f);
 }
 
 .series-progress-tick[data-targeted]:not([aria-current])::before {
   background: hsl(var(--primary));
+}
+
+html:is([data-motion="reduced"], .motion-off) .series-progress-tick::before {
+  transition: background-color 160ms;
 }
 
 @media (hover: hover) {

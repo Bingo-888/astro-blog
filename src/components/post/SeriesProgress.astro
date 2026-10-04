@@ -1,10 +1,11 @@
 ---
 /**
- * SeriesProgress - 侧栏底部的系列进度：一根丝线上每篇一道刻度，当前篇是一颗珠子。
- * 悬停时刻度随指针泛起放大的波浪，上方信息行就地换成目标文章的标题；触屏可沿刻度拖动预览、松手跳转。
+ * SeriesProgress - 侧栏底部的系列进度「花信」：一根丝线上串着每篇一片樱花瓣，读过的染粉，当前篇是带光晕的整瓣。
+ * 悬停时花瓣像被风拂过一样随指针泛起、扬起；上方信息行就地换成目标文章的标题；触屏可沿丝线拖动预览、松手跳转。
  */
 import { Routes } from '@constants/router';
 import { routeBuilder } from '@lib/route';
+import { PETAL_MASK } from '@lib/sakura/petal';
 import { railWindowStart } from '@lib/series-rail';
 import { Icon } from 'astro-icon/components';
 import { type Locale, localizedPath, t } from '@/i18n';
@@ -21,6 +22,8 @@ interface Props {
 
 /** Ticks shown at most; a longer series shows a window around the current post with faded ends. */
 const MAX_TICKS = 40;
+/** Past this many, petals no longer fit side by side and stand upright as slender slivers. */
+const DENSE_TICKS = 16;
 
 const { posts, currentSlug, seriesName, locale, withScrollActions = false } = Astro.props;
 const current = posts.findIndex((post) => post.slug === currentSlug);
@@ -36,7 +39,7 @@ const position = (index: number) => `${index + 1} / ${total}`;
 
 {
   current >= 0 && total > 1 && (
-    <nav class="series-progress" aria-label={seriesName}>
+    <nav class="series-progress" aria-label={seriesName} style={`--petal-mask: ${PETAL_MASK}`}>
       <div class="series-progress-meta">
         <div class="series-progress-default">
           <span class="series-progress-name">{seriesName}</span>
@@ -69,6 +72,7 @@ const position = (index: number) => `${index + 1} / ${total}`;
           style={`--tick-count: ${ticks.length}`}
           data-clipped-start={start > 0 || undefined}
           data-clipped-end={start + ticks.length < total || undefined}
+          data-dense={ticks.length > DENSE_TICKS || undefined}
         >
           {ticks.map(({ post, index }) => (
             <li>
