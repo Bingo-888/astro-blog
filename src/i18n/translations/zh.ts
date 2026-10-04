@@ -133,6 +133,7 @@ export const uiStrings = {
   'diagram.zoomOut': '缩小',
   'diagram.resetZoom': '重置缩放',
   'diagram.fitToScreen': '适应屏幕',
+  'diagram.actualSize': '实际大小',
   'diagram.download': '下载图片',
   'diagram.resize': '调整图表大小',
   'diagram.resizeHint': '拖动调整大小，双击还原',
@@ -141,6 +142,7 @@ export const uiStrings = {
   'diagram.errorHelp': '可以刷新页面重试，或通过工具栏查看和复制图表源码。',
   'diagram.errorHelpNoSource': '请刷新页面重试。',
   'diagram.reload': '刷新重试',
+  'diagram.gestureHint': '双指捏合或滚轮缩放 · 拖动平移 · 双击放大',
 
   // ── Image Lightbox ──────────────────────────────────────────
   'image.preview': '图片预览',
@@ -325,6 +327,7 @@ export const uiStrings = {
   'series.latestPost': '最新文章',
   'series.viewAll': '查看全部',
   'series.postCount': '{count} 篇',
+  'series.position': '第 {current} / {total} 篇',
   'series.noPosts': '暂无系列文章',
   'series.rss': 'RSS 订阅',
   'series.chromeExtension': 'Chrome 插件',
@@ -334,6 +337,10 @@ export const uiStrings = {
   'homeInfo.articles': '文章',
   'homeInfo.categories': '分类',
   'homeInfo.tags': '标签',
+  'homeInfo.greetingMorning': '早上好呀',
+  'homeInfo.greetingAfternoon': '下午好呀',
+  'homeInfo.greetingEvening': '晚上好呀',
+  'homeInfo.greetingNight': '夜深了，早点休息',
 
   // ── Drawer ──────────────────────────────────────────────────
   'drawer.navMenu': '导航菜单',

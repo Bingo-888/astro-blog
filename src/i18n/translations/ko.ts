@@ -132,6 +132,7 @@ export const uiStrings = {
   'diagram.zoomOut': '축소',
   'diagram.resetZoom': '확대/축소 초기화',
   'diagram.fitToScreen': '화면에 맞춤',
+  'diagram.actualSize': '실제 크기',
   'diagram.download': '이미지 다운로드',
   'diagram.resize': '다이어그램 크기 조절',
   'diagram.resizeHint': '드래그하여 크기 조절, 더블클릭하여 원래대로',
@@ -140,6 +141,7 @@ export const uiStrings = {
   'diagram.errorHelp': '페이지를 새로고침하거나 도구 모음에서 다이어그램 소스를 보고 복사할 수 있습니다.',
   'diagram.errorHelpNoSource': '페이지를 새로고침하여 다시 시도해 주세요.',
   'diagram.reload': '새로고침',
+  'diagram.gestureHint': '핀치/휠로 확대·축소 · 드래그로 이동 · 더블클릭으로 확대',
 
   // ── Image Lightbox ──────────────────────────────────────────
   'image.preview': '이미지 미리보기',
@@ -326,6 +328,7 @@ export const uiStrings = {
   'series.latestPost': '최신 게시물',
   'series.viewAll': '모두 보기',
   'series.postCount': '{count}개',
+  'series.position': '{total}편 중 {current}번째',
   'series.noPosts': '등록된 시리즈 게시물이 없어요',
   'series.rss': 'RSS 구독',
   'series.chromeExtension': 'Chrome 확장 프로그램',
@@ -335,6 +338,10 @@ export const uiStrings = {
   'homeInfo.articles': '게시물',
   'homeInfo.categories': '카테고리',
   'homeInfo.tags': '태그',
+  'homeInfo.greetingMorning': '좋은 아침이에요!',
+  'homeInfo.greetingAfternoon': '좋은 오후예요!',
+  'homeInfo.greetingEvening': '좋은 저녁이에요!',
+  'homeInfo.greetingNight': '늦었어요, 푹 쉬세요',
 
   // ── Drawer ──────────────────────────────────────────────────
   'drawer.navMenu': '내비게이션 메뉴',

@@ -25,9 +25,7 @@ export function MacToolbar({ language, title, url, linkText, className, children
   return (
     <div
       className={cn(
-        'flex shrink-0 flex-col border border-border border-b-0 bg-muted/50 backdrop-blur-sm',
-        'rounded-t-xl shadow-md',
-        'dark:bg-muted/30',
+        'flex shrink-0 flex-col rounded-t-xl border border-(--code-border) border-b-0 bg-(--code-toolbar)',
         onClose && 'tablet:rounded-none',
         className,
       )}
@@ -38,7 +36,7 @@ export function MacToolbar({ language, title, url, linkText, className, children
             <TrafficLights onFullscreen={onFullscreen} />
           </div>
           <span
-            className="truncate font-medium font-mono text-muted-foreground text-xs uppercase tracking-wider"
+            className="truncate font-mono text-[0.6875rem] text-muted-foreground/80 uppercase tracking-[0.08em]"
             title={language}
           >
             {language}

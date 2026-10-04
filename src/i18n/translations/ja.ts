@@ -134,6 +134,7 @@ export const uiStrings: UIStrings = {
   'diagram.zoomOut': '縮小',
   'diagram.resetZoom': 'リセット',
   'diagram.fitToScreen': '画面に合わせる',
+  'diagram.actualSize': '実際のサイズ',
   'diagram.download': '画像をダウンロード',
   'diagram.resize': '図のサイズを変更',
   'diagram.resizeHint': 'ドラッグでサイズ変更、ダブルクリックで元に戻す',
@@ -142,6 +143,7 @@ export const uiStrings: UIStrings = {
   'diagram.errorHelp': 'ページを再読み込みするか、ツールバーから図のソースを表示・コピーできます。',
   'diagram.errorHelpNoSource': 'ページを再読み込みしてお試しください。',
   'diagram.reload': '再読み込み',
+  'diagram.gestureHint': 'ピンチ/ホイールで拡大縮小・ドラッグで移動・ダブルクリックで拡大',
 
   // ── Lightboxでの画像表示 ──────────────────────────────────────────
   'image.preview': '画像プレビュー',
@@ -328,6 +330,7 @@ export const uiStrings: UIStrings = {
   'series.latestPost': '最新',
   'series.viewAll': 'すべて表示',
   'series.postCount': '{count}件の投稿',
+  'series.position': '{total} 本中 {current} 本目',
   'series.noPosts': 'このシリーズには投稿がありません',
   'series.rss': 'RSSフィード',
   'series.chromeExtension': 'Chrome拡張機能',
@@ -337,6 +340,10 @@ export const uiStrings: UIStrings = {
   'homeInfo.articles': '記事',
   'homeInfo.categories': 'カテゴリー',
   'homeInfo.tags': 'タグ',
+  'homeInfo.greetingMorning': 'おはよう！',
+  'homeInfo.greetingAfternoon': 'こんにちは！',
+  'homeInfo.greetingEvening': 'こんばんは！',
+  'homeInfo.greetingNight': '夜更かしはほどほどに',
 
   // ── ドロワー ──────────────────────────────────────────────────
   'drawer.navMenu': 'ナビゲーションメニュー',

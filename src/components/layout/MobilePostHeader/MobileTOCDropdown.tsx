@@ -10,6 +10,7 @@ import { animation } from '@constants/design-tokens';
 import { FloatingFocusManager, FloatingPortal, useClick, useDismiss, useInteractions, useRole } from '@floating-ui/react';
 import { useControlledState } from '@hooks/useControlledState';
 import { useFloatingUI } from '@hooks/useFloatingUI';
+import { useMediaQuery } from '@hooks/useMediaQuery';
 import { useMotionLevel } from '@hooks/useMotionLevel';
 import type { ReadingProgress } from '@hooks/useReadingProgress';
 import { useTranslation } from '@hooks/useTranslation';
@@ -22,9 +23,21 @@ import { HeadingList } from '../TableOfContents/HeadingList';
 import { TocProvider, useTocContext } from '../TableOfContents/TocContext';
 import { TocGlide } from '../TableOfContents/TocGlide';
 
-/** The panel starts as a pill-sized corner under the trigger and opens to its full size. */
+/** The panel starts as a pill-sized strip under the trigger and opens to its full size. */
 const PANEL_CLOSED = 'inset(0% 45% 88% 0% round 20px)';
-const PANEL_OPEN = 'inset(0% 0% 0% 0% round 16px)';
+const PANEL_OPEN = 'inset(0px 0px 0px 0px round 16px)';
+/** On phones the panel spans the screen with this margin instead of hanging off the pill. */
+const PHONE_MAX = 480;
+const PHONE_MARGIN = 12;
+
+/** A closed clip-path that sits exactly under the trigger, so the panel grows out of the pill itself. */
+function closedUnder(trigger: Element | null, panelLeft: number, panelWidth: number): string {
+  if (!trigger) return PANEL_CLOSED;
+  const box = trigger.getBoundingClientRect();
+  const left = Math.max(0, box.left - panelLeft);
+  const right = Math.max(0, panelLeft + panelWidth - box.right);
+  return `inset(0px ${right}px 88% ${left}px round 20px)`;
+}
 const PANEL_ENTER: Transition = {
   clipPath: { duration: 0.46, ease: animation.bezier.outExpo },
   opacity: { duration: 0.16, ease: animation.bezier.outQuart },
@@ -79,6 +92,11 @@ export function MobileTOCDropdown({
   const role = useRole(context);
 
   const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss, role]);
+  const phone = useMediaQuery(`(max-width: ${PHONE_MAX}px)`);
+  const panelStyle = phone ? { ...floatingStyles, left: PHONE_MARGIN } : floatingStyles;
+  const closedClip = phone
+    ? closedUnder(refs.reference.current as Element | null, PHONE_MARGIN, window.innerWidth - PHONE_MARGIN * 2)
+    : PANEL_CLOSED;
   // Focus opens on the current entry, which the TOC has just scrolled into view; the first entry
   // (the focus manager's default) would scroll the panel back to the top.
   const currentEntry = useRef<HTMLElement | null>(null);
@@ -104,9 +122,12 @@ export function MobileTOCDropdown({
             <FloatingFocusManager context={context} modal={false} initialFocus={currentEntry}>
               <m.div
                 ref={refs.setFloating}
-                style={floatingStyles}
-                className="z-50 flex max-h-[min(70vh,34rem)] w-[min(20rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-primary/15 bg-background/85 shadow-xl backdrop-blur-md"
-                initial={motionDisabled ? false : { opacity: 0, clipPath: PANEL_CLOSED }}
+                style={panelStyle}
+                className={cn(
+                  'z-50 flex max-h-[min(70vh,34rem)] flex-col overflow-hidden rounded-2xl border border-primary/15 bg-popover shadow-xl',
+                  phone ? 'w-[calc(100vw-1.5rem)]' : 'w-[min(20rem,calc(100vw-1.5rem))]',
+                )}
+                initial={motionDisabled ? false : { opacity: 0, clipPath: closedClip }}
                 animate={
                   motionDisabled
                     ? { opacity: 1, clipPath: PANEL_OPEN, transition: { duration: 0 } }
@@ -115,7 +136,7 @@ export function MobileTOCDropdown({
                 exit={
                   motionDisabled
                     ? { opacity: 0, transition: { duration: 0 } }
-                    : { opacity: 0, clipPath: PANEL_CLOSED, transition: PANEL_EXIT }
+                    : { opacity: 0, clipPath: closedClip, transition: PANEL_EXIT }
                 }
                 {...getFloatingProps()}
               >

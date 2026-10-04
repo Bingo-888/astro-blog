@@ -75,3 +75,46 @@
     translate: 0 calc(-9dvh * var(--motion-travel));
   }
 }
+
+/* Series cover description (SeriesCover.astro): a quiet light subtitle over the cover, not body prose. */
+.series-cover-description {
+  color: rgb(255 255 255 / 0.9);
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 1px 2px rgb(20 8 20 / 0.55),
+    0 0 1.25rem rgb(20 8 20 / 0.35);
+  text-wrap: pretty;
+}
+
+.series-cover-description :is(p, li) {
+  margin: 0;
+  color: inherit;
+}
+
+.series-cover-description p + p {
+  margin-top: 0.375rem;
+}
+
+.series-cover-description a {
+  color: #fff;
+  text-decoration: underline;
+  text-decoration-color: rgb(255 255 255 / 0.5);
+  text-underline-offset: 0.2em;
+}
+
+.series-cover-description code {
+  padding: 0.05em 0.35em;
+  border-radius: 0.3em;
+  background: rgb(255 255 255 / 0.16);
+  color: inherit;
+  font-size: 0.9em;
+}
+
+@media (768px >= width) {
+  .series-cover-description {
+    font-size: 0.875rem;
+    line-height: 1.75;
+  }
+}
