@@ -680,16 +680,28 @@ span.series-progress-arrow {
   background: hsl(var(--primary) / 0.65);
 }
 
-/* This post: the ruler's bead, its "you are here". */
+/*
+  This post: the ruler's needle. Still a line like every other mark, only taller, glowing and capped
+  with a small bead; it stays still while the wave ripples around it.
+*/
 .series-progress-tick[aria-current="page"] .series-progress-major {
-  width: 0.5625rem;
-  height: 0.5625rem;
+  width: 2px;
+  height: 1.25rem;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0.375rem hsl(var(--primary) / 0.55);
+  scale: none;
+}
+
+.series-progress-tick[aria-current="page"] .series-progress-major::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
   border-radius: 9999px;
   background: hsl(var(--primary));
-  box-shadow:
-    0 0 0 3px var(--sider-surface),
-    0 0 0 4.5px hsl(var(--primary) / 0.3);
-  scale: calc(1 + (var(--wave, 1) - 1) * 0.2);
+  translate: -50% -50%;
 }
 
 .series-progress-tick[data-targeted]:not([aria-current]) .series-progress-major {
