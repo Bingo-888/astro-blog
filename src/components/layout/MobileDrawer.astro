@@ -119,6 +119,7 @@ const locale = getLocaleFromUrl(Astro.url.pathname);
 
     private open() {
       if (this.drawer.dataset.state === 'open') return;
+      this.clearRelease();
       const active = document.activeElement;
       this.returnFocus = active instanceof HTMLElement && active !== document.body ? active : null;
       this.indexEntranceRows();
@@ -240,11 +241,16 @@ const locale = getLocaleFromUrl(Astro.url.pathname);
       setTimeout(() => (this.suppressClick = false), 0);
     };
 
-    private onTransitionEnd = (event: TransitionEvent) => {
-      if (event.target !== this.drawer || event.propertyName !== 'translate') return;
+    /** Drops a drag release's timing; reduced motion transitions opacity only, so translate never ends there. */
+    private clearRelease() {
       this.drawer.style.removeProperty('--drawer-dur');
       this.drawer.style.removeProperty('--drawer-ease');
       this.overlay.style.removeProperty('--drawer-dur');
+    }
+
+    private onTransitionEnd = (event: TransitionEvent) => {
+      if (event.target !== this.drawer || !['translate', 'opacity'].includes(event.propertyName)) return;
+      this.clearRelease();
     };
   }
 

@@ -617,6 +617,8 @@ span.series-progress-arrow {
   flex: 1;
   min-width: 0;
   height: 2.25rem;
+  /* Horizontal finger drags scrub the rail; without this a touch screen at desktop width pans instead. */
+  touch-action: pan-y;
 }
 
 .series-progress-rail::before {

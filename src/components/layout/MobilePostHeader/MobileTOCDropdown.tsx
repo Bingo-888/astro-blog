@@ -10,6 +10,7 @@ import { animation } from '@constants/design-tokens';
 import { FloatingFocusManager, FloatingPortal, useClick, useDismiss, useInteractions, useRole } from '@floating-ui/react';
 import { useControlledState } from '@hooks/useControlledState';
 import { useFloatingUI } from '@hooks/useFloatingUI';
+import { useMediaQuery } from '@hooks/useMediaQuery';
 import { useMotionLevel } from '@hooks/useMotionLevel';
 import type { ReadingProgress } from '@hooks/useReadingProgress';
 import { useTranslation } from '@hooks/useTranslation';
@@ -91,7 +92,7 @@ export function MobileTOCDropdown({
   const role = useRole(context);
 
   const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss, role]);
-  const phone = typeof window !== 'undefined' && window.innerWidth <= PHONE_MAX;
+  const phone = useMediaQuery(`(max-width: ${PHONE_MAX}px)`);
   const panelStyle = phone ? { ...floatingStyles, left: PHONE_MARGIN } : floatingStyles;
   const closedClip = phone
     ? closedUnder(refs.reference.current as Element | null, PHONE_MARGIN, window.innerWidth - PHONE_MARGIN * 2)

@@ -256,7 +256,11 @@ const minors = Array.from({ length: minorsPerSide(ticks.length) });
     const tick = rail.querySelectorAll<HTMLAnchorElement>('.series-progress-tick')[index];
     if (tick && tick.getAttribute('aria-current') !== 'page') {
       // The finger lifted after a scrub: swallow the click it would land on and go to the scrubbed post.
-      rail.addEventListener('click', (click) => click.preventDefault(), { once: true, capture: true });
+      // The swallower only lives for this lift's click (dispatched within a few hundred ms), so a failed
+      // navigation never eats a later tap.
+      const swallow = (click: MouseEvent) => click.preventDefault();
+      document.addEventListener('click', swallow, { once: true, capture: true });
+      setTimeout(() => document.removeEventListener('click', swallow, { capture: true }), 400);
       void navigate(tick.href);
     }
   };
