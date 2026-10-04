@@ -337,6 +337,10 @@ export const uiStrings = {
   'homeInfo.articles': '게시물',
   'homeInfo.categories': '카테고리',
   'homeInfo.tags': '태그',
+  'homeInfo.greetingMorning': '좋은 아침이에요!',
+  'homeInfo.greetingAfternoon': '좋은 오후예요!',
+  'homeInfo.greetingEvening': '좋은 저녁이에요!',
+  'homeInfo.greetingNight': '늦었어요, 푹 쉬세요',
 
   // ── Drawer ──────────────────────────────────────────────────
   'drawer.navMenu': '내비게이션 메뉴',

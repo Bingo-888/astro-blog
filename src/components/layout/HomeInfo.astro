@@ -39,9 +39,17 @@ const stats = [
 <div class="home-info" data-variant={isDrawer ? 'drawer' : 'sider'} data-home-info-container>
   <div class="home-profile" data-home-profile>
     <div class="home-identity">
-      <div class="home-avatar" style={getLqipStyle(avatar)}>
+      <div
+        class="home-avatar"
+        style={getLqipStyle(avatar)}
+        data-greet-morning={t(locale, 'homeInfo.greetingMorning')}
+        data-greet-afternoon={t(locale, 'homeInfo.greetingAfternoon')}
+        data-greet-evening={t(locale, 'homeInfo.greetingEvening')}
+        data-greet-night={t(locale, 'homeInfo.greetingNight')}
+      >
         <img src={avatar} alt={`${siteConfig.name ?? ''} avatar`} loading="eager" fetchpriority="high" />
         {christmasConfig.enabled && christmasConfig.features.christmasHat && <ChristmasHat />}
+        <span class="home-greeting" aria-hidden="true"></span>
       </div>
       <div class="home-identity-text">
         <p class="home-name">{siteConfig?.name}</p>
@@ -113,10 +121,25 @@ const stats = [
 </div>
 
 <script>
-  // One delegated listener serves every sider copy (desktop and drawer) across page swaps.
+  // Delegated listeners serve every sider copy (desktop and drawer) across page swaps.
   document.addEventListener('click', (event) => {
     const trigger = (event.target as Element | null)?.closest?.('[data-collapse-trigger]');
     if (!trigger) return;
     trigger.setAttribute('aria-expanded', String(trigger.getAttribute('aria-expanded') !== 'true'));
+  });
+
+  /** The greeting follows the visitor's clock, so it is picked at hover time rather than at build time. */
+  function greetingKey(hour: number): 'greetMorning' | 'greetAfternoon' | 'greetEvening' | 'greetNight' {
+    if (hour >= 5 && hour < 12) return 'greetMorning';
+    if (hour >= 12 && hour < 18) return 'greetAfternoon';
+    if (hour >= 18 && hour < 23) return 'greetEvening';
+    return 'greetNight';
+  }
+
+  document.addEventListener('pointerover', (event) => {
+    const avatar = (event.target as Element | null)?.closest?.<HTMLElement>('.home-avatar');
+    const bubble = avatar?.querySelector<HTMLElement>('.home-greeting');
+    if (!avatar || !bubble || avatar.contains(event.relatedTarget as Node | null)) return;
+    bubble.textContent = avatar.dataset[greetingKey(new Date().getHours())] ?? '';
   });
 </script>

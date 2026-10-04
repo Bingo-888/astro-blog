@@ -336,6 +336,10 @@ export const uiStrings = {
   'homeInfo.articles': '文章',
   'homeInfo.categories': '分类',
   'homeInfo.tags': '标签',
+  'homeInfo.greetingMorning': '早上好呀',
+  'homeInfo.greetingAfternoon': '下午好呀',
+  'homeInfo.greetingEvening': '晚上好呀',
+  'homeInfo.greetingNight': '夜深了，早点休息',
 
   // ── Drawer ──────────────────────────────────────────────────
   'drawer.navMenu': '导航菜单',

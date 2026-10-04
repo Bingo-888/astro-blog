@@ -339,6 +339,10 @@ export const uiStrings: UIStrings = {
   'homeInfo.articles': '記事',
   'homeInfo.categories': 'カテゴリー',
   'homeInfo.tags': 'タグ',
+  'homeInfo.greetingMorning': 'おはよう！',
+  'homeInfo.greetingAfternoon': 'こんにちは！',
+  'homeInfo.greetingEvening': 'こんばんは！',
+  'homeInfo.greetingNight': '夜更かしはほどほどに',
 
   // ── ドロワー ──────────────────────────────────────────────────
   'drawer.navMenu': 'ナビゲーションメニュー',
