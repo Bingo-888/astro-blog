@@ -107,16 +107,24 @@ html.theme-transition .header-content {
     translate: 0 calc(-100% - 1.5rem);
   }
 
+  /*
+    The capsule reaches 1.25rem past the 80rem content box. Below ~82.5rem that would run off the
+    viewport, so it stops 1rem short of the window edge (100vw counts the scrollbar, so the gap reads a little smaller) and the content pads inward to keep clear
+    of the pill's rounded ends. --header-gutter is the space beside the content box.
+  */
   .header-inner {
+    --header-gutter: max(0px, (100vw - 80rem) / 2);
     position: relative;
     isolation: isolate;
+    padding-inline: max(1.5rem, calc(3rem - var(--header-gutter)));
     transition: translate 520ms var(--ease-out-expo);
   }
 
   .header-capsule {
     display: block;
     position: absolute;
-    inset: -0.375rem -1.25rem;
+    inset-block: -0.375rem;
+    inset-inline: max(-1.25rem, calc(1rem - var(--header-gutter)));
     z-index: -1;
     view-transition-name: site-header-capsule;
     border: 1px solid hsl(var(--primary) / 0.16);

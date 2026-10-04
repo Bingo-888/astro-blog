@@ -327,6 +327,7 @@ export const uiStrings = {
   'series.latestPost': '最新文章',
   'series.viewAll': '查看全部',
   'series.postCount': '{count} 篇',
+  'series.position': '第 {current} / {total} 篇',
   'series.noPosts': '暂无系列文章',
   'series.rss': 'RSS 订阅',
   'series.chromeExtension': 'Chrome 插件',
@@ -336,6 +337,10 @@ export const uiStrings = {
   'homeInfo.articles': '文章',
   'homeInfo.categories': '分类',
   'homeInfo.tags': '标签',
+  'homeInfo.greetingMorning': '早上好呀',
+  'homeInfo.greetingAfternoon': '下午好呀',
+  'homeInfo.greetingEvening': '晚上好呀',
+  'homeInfo.greetingNight': '夜深了，早点休息',
 
   // ── Drawer ──────────────────────────────────────────────────
   'drawer.navMenu': '导航菜单',

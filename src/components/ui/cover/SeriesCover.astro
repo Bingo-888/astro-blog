@@ -103,9 +103,7 @@ const descriptionHtml = getSanitizeHtml(rawHtml);
     <!-- Description -->
     {
       series.description && (
-        <div class="shadow-text mt-8 max-w-3xl text-center">
-          <div class="prose prose-invert mx-auto text-sm leading-relaxed md:text-xs" set:html={descriptionHtml} />
-        </div>
+        <div class="series-cover-description mt-7 max-w-2xl text-center md:mt-5" set:html={descriptionHtml} />
       )
     }
   </div>

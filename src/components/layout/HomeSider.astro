@@ -1,16 +1,16 @@
 ---
-import { SeriesNavigation } from '@components/post/SeriesNavigation';
 import { SeriesPostList } from '@components/post/SeriesPostList';
+import SeriesProgress from '@components/post/SeriesProgress.astro';
 import HomeSiderSegmented from '@components/ui/segmented/HomeSiderSegmented';
 import { HomeSiderSegmentType, HomeSiderType } from '@constants/enum';
+import { translateCategoryName } from '@lib/content';
 import { getPostSlug } from '@lib/content/locale';
-import { getAdjacentSeriesPosts, getSeriesPosts } from '@lib/content/posts';
-import { toPostRef, toPostRefs } from '@lib/content/transforms';
+import { getPostLastCategory, getSeriesPosts } from '@lib/content/posts';
+import { toPostRefs } from '@lib/content/transforms';
 import { cn } from '@lib/utils';
 import type { BlogPost } from 'types/blog';
 import { getLocaleFromUrl } from '@/i18n';
 import HomeInfo from './HomeInfo.astro';
-import { ScrollProgress } from './ScrollProgress';
 import { TableOfContents } from './TableOfContents/index';
 
 interface Props {
@@ -27,51 +27,54 @@ const defaultSegmentType = type === HomeSiderType.POST ? HomeSiderSegmentType.DI
 // 获取系列文章（转换为轻量级引用）
 const seriesPosts = post && type === HomeSiderType.POST ? toPostRefs(await getSeriesPosts(post, locale)) : [];
 
-// 获取上一篇和下一篇（转换为轻量级引用）
-const adjacentPosts =
-  post && type === HomeSiderType.POST ? await getAdjacentSeriesPosts(post, locale) : { prevPost: null, nextPost: null };
-const prevPost = adjacentPosts.prevPost ? toPostRef(adjacentPosts.prevPost) : null;
-const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : null;
+const currentSlug = post ? getPostSlug(post) : '';
+const seriesName = post && type === HomeSiderType.POST ? translateCategoryName(getPostLastCategory(post).name, locale) : '';
 ---
 
 <div
   class={cn(
-    'page-home-sider shadow-home-sider sticky top-0 tablet:overscroll-none self-start flex min-w-64 max-w-64 flex-col items-stretch tablet:hidden overflow-auto h-screen px-2 scroll-gutter-stable',
+    isDrawer
+      ? 'drawer-sider flex min-h-0 flex-1 flex-col px-3'
+      : 'page-home-sider sider-column sticky self-start flex w-64 shrink-0 flex-col items-stretch tablet:hidden px-3 pb-4',
     className,
   )}
   transition:name={isDrawer ? 'page-home-sider-drawer' : 'page-home-sider'}
 >
   {
     type === HomeSiderType.POST && (
-      <HomeSiderSegmented
-        client:only="react"
-        className="my-4 tablet:mb-0 flex justify-between text-sm/6 w-auto"
-        itemClass="grow"
-        defaultValue={defaultSegmentType}
-      />
+      <div data-sider-segmented class={isDrawer ? 'shrink-0 pt-2 pb-4' : 'shrink-0 pt-3 pb-2'}>
+        <HomeSiderSegmented
+          client:only="react"
+          className="flex w-full justify-between text-sm/6"
+          itemClass="grow"
+          defaultValue={defaultSegmentType}
+        />
+      </div>
     )
   }
 
   <sider-content
-    class="flex-1 overflow-x-hidden overflow-y-auto"
+    class={cn('flex-1 overflow-x-hidden overflow-y-auto overscroll-contain', {
+      'toc-scroll-fade scrollbar-hidden': type !== HomeSiderType.POST,
+    })}
     data-type={type}
     data-default-type={defaultSegmentType}
   >
     <div slot="info" class="sider-slot" data-slot-type="info">
-      <HomeInfo className={type === HomeSiderType.HOME ? 'pt-18 md:pt-0' : ''} />
+      <HomeInfo isDrawer={isDrawer} />
     </div>
     <div slot="directory" class="sider-slot overflow-hidden h-full" data-slot-type="directory">
       {type === HomeSiderType.POST && <TableOfContents client:only="react" isDrawer={isDrawer} enableNumbering={post?.data.tocNumbering ?? true} />}
     </div>
     <div slot="series" class="sider-slot" data-slot-type="series">
-      {type === HomeSiderType.POST && <SeriesPostList client:idle posts={seriesPosts} currentPostSlug={post ? getPostSlug(post) : undefined} locale={locale} />}
+      {type === HomeSiderType.POST && <SeriesPostList client:idle posts={seriesPosts} currentPostSlug={currentSlug || undefined} locale={locale} />}
     </div>
   </sider-content>
 
-  <!-- 内联脚本：在 DOM 解析后立即隐藏不需要的内容，避免闪烁 -->
+  <!-- 内联脚本：在 DOM 解析后立即隐藏不需要的内容，避免闪烁（桌面与抽屉各一份，只处理自己所在的侧栏） -->
   <script is:inline data-astro-rerun>
     (function () {
-      const container = document.querySelector('sider-content');
+      const container = document.currentScript?.parentElement?.querySelector('sider-content');
       if (!container) return;
 
       const defaultType = container.getAttribute('data-default-type') || 'info';
@@ -88,11 +91,9 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
 
   {
     type === HomeSiderType.POST && (
-      <SeriesNavigation client:load prevPost={prevPost} nextPost={nextPost} className="w-full px-2" locale={locale} />
+      <SeriesProgress posts={seriesPosts} currentSlug={currentSlug} seriesName={seriesName} locale={locale} />
     )
   }
-
-  <ScrollProgress client:only="react" className="mt-auto w-full rounded-full pt-4" />
 </div>
 
 <script>
@@ -105,8 +106,83 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
   const EASE_IN_QUART = 'cubic-bezier(0.5, 0, 0.75, 0)';
   /** Rows that cascade in on a lively switch: profile blocks and nav buttons, TOC entries, series posts. */
   const CASCADE_ROWS =
-    '[data-home-info-container] > :not([data-home-nav]), [data-home-nav] > *, .toc-container > :not([data-toc-rail]), [data-series-list] > *';
+    '[data-home-profile] > *, [data-home-nav] > *, .toc-container > :not([data-toc-rail]), [data-series-list] > *';
   const CASCADE_SPREAD_MS = 180;
+
+  /** The header's own show/hide transitions (header.css); the sider rides along on the same curve. */
+  const HEADER_REVEAL: KeyframeAnimationOptions = { duration: 480, easing: EASE_OUT_EXPO };
+  const HEADER_HIDE: KeyframeAnimationOptions = { duration: 260, easing: EASE_IN_QUART };
+
+  function translateY(element: HTMLElement | null): number {
+    if (!element) return 0;
+    const [, y = '0'] = getComputedStyle(element).translate.split(' ');
+    return Number.parseFloat(y) || 0;
+  }
+
+  /**
+   * Moves the desktop sider with the header as it hides and reveals. The sticky offset and height
+   * switch at once; FLIP translates replay the move with the header's own timing. The column slides
+   * as one, the footer is counter-translated so it stays pinned to the viewport bottom, and when the
+   * scroller grows its new strip is clipped away until the column has arrived. Only transform and
+   * clip-path animate, so nothing relays out per frame.
+   */
+  function followHeader(sider: HTMLElement): () => void {
+    const header = document.getElementById('site-header');
+    if (!header) return () => {};
+    const footer = sider.querySelector<HTMLElement>(':scope > .series-progress');
+    const scroller = sider.querySelector<HTMLElement>('sider-content');
+    let hidden = header.classList.contains('-translate-y-full');
+    let lastTop = Number.parseFloat(getComputedStyle(sider).top) || 0;
+    let animations: Animation[] = [];
+
+    const settle = () => {
+      for (const animation of animations) animation.cancel();
+      animations = [];
+      sider.style.translate = '';
+      if (footer) footer.style.translate = '';
+      if (scroller) scroller.style.clipPath = '';
+    };
+
+    // Each part's start is also written inline: a new animation can spend a frame pending.
+    const play = (element: HTMLElement | null, property: 'translate' | 'clipPath', from: string, to: string, timing: KeyframeAnimationOptions) => {
+      if (!element) return;
+      element.style[property] = from;
+      const animation = element.animate([{ [property]: from }, { [property]: to }], { ...timing, fill: 'forwards' });
+      animations.push(animation);
+    };
+
+    const observer = new MutationObserver(() => {
+      const nowHidden = header.classList.contains('-translate-y-full');
+      if (nowHidden === hidden) return;
+      hidden = nowHidden;
+      const carried = animations.length ? translateY(sider) : 0;
+      const footerCarried = animations.length ? translateY(footer) : 0;
+      settle();
+      const nextTop = Number.parseFloat(getComputedStyle(sider).top) || 0;
+      if (readMotionLevel() === 'reduced' || nextTop === lastTop) {
+        lastTop = nextTop;
+        return;
+      }
+      sider.style.top = `${lastTop}px`;
+      const before = sider.getBoundingClientRect().top;
+      sider.style.top = '';
+      const delta = before - sider.getBoundingClientRect().top + carried;
+      lastTop = nextTop;
+      if (Math.abs(delta) < 0.5) return;
+
+      const timing = nowHidden ? HEADER_HIDE : HEADER_REVEAL;
+      play(sider, 'translate', `0 ${delta}px`, '0 0', timing);
+      // The column's bottom edge does not move when stuck, so the footer keeps its place on screen.
+      play(footer, 'translate', `0 ${carried + footerCarried - delta}px`, '0 0', timing);
+      if (delta > 0) play(scroller, 'clipPath', `inset(0 0 ${delta}px 0)`, 'inset(0 0 0px 0)', timing);
+      animations[0].onfinish = settle;
+    });
+    observer.observe(header, { attributes: true, attributeFilter: ['class'] });
+    return () => {
+      observer.disconnect();
+      settle();
+    };
+  }
 
   type Frame = { opacity: string; translate: string };
 
@@ -128,8 +204,12 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
     private rowAnimations = new Set<Animation>();
     private unsubscribe: (() => void) | null = null;
     private unsubscribeMotion: (() => void) | null = null;
+    private stopFollowing: (() => void) | null = null;
 
     connectedCallback() {
+      const sider = this.closest<HTMLElement>('.page-home-sider');
+      this.stopFollowing?.();
+      this.stopFollowing = sider ? followHeader(sider) : null;
       for (const type of PANEL_ORDER) {
         const panel = this.querySelector<HTMLElement>(`[data-slot-type="${type}"]`);
         if (panel) this.panels.set(type, panel);
@@ -152,6 +232,8 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
     }
 
     disconnectedCallback() {
+      this.stopFollowing?.();
+      this.stopFollowing = null;
       this.unsubscribe?.();
       this.unsubscribe = null;
       this.unsubscribeMotion?.();
@@ -264,34 +346,45 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
   }
 
   /*
-   * 页头可见时（未隐藏）侧栏吸顶偏移到页头下方，避免 sticky 内容与固定页头重叠。
-   * 页头随下滚隐藏（-translate-y-full）后恢复 top-0，保持原有吸顶状态。
+   * 页头可见时侧栏吸顶在页头下方，页头随下滚隐藏（-translate-y-full）后上提到视口顶部。
+   * 偏移本身瞬间切换，脚本里的 followHeader 用 translate/clip-path 补间：整列与页头同曲线移动，
+   * 底部系列进度反向抵消保持钉在视口底部，目录区高度的突变由裁剪遮住。
    * 仅桌面宽度生效（>992px）：移动端抽屉内的 sider 不适用。
    */
+  .page-home-sider {
+    top: 0;
+    height: 100vh;
+  }
+
   @media (width > 992px) {
-    :global(body:has(#site-header:not(.-translate-y-full))) .page-home-sider {
+    .page-home-sider {
       top: 4.25rem;
       height: calc(100vh - 4.25rem);
-      transition:
-        top 480ms var(--ease-out-expo),
-        height 480ms var(--ease-out-expo);
+    }
+
+    :global(body:has(#site-header.-translate-y-full)) .page-home-sider {
+      top: 0;
+      height: 100vh;
     }
   }
 
   sider-content {
     position: relative;
+    min-height: 0;
   }
 
   .sider-slot {
     position: absolute;
     top: auto;
-    left: 0;
-    right: 0;
+    left: var(--sider-bleed, 0);
+    right: var(--sider-bleed, 0);
   }
 
   @media (768px >= width) {
     .sider-slot {
       position: relative;
+      left: auto;
+      right: auto;
     }
   }
 

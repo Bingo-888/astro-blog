@@ -328,6 +328,7 @@ export const uiStrings = {
   'series.latestPost': '최신 게시물',
   'series.viewAll': '모두 보기',
   'series.postCount': '{count}개',
+  'series.position': '{total}편 중 {current}번째',
   'series.noPosts': '등록된 시리즈 게시물이 없어요',
   'series.rss': 'RSS 구독',
   'series.chromeExtension': 'Chrome 확장 프로그램',
@@ -337,6 +338,10 @@ export const uiStrings = {
   'homeInfo.articles': '게시물',
   'homeInfo.categories': '카테고리',
   'homeInfo.tags': '태그',
+  'homeInfo.greetingMorning': '좋은 아침이에요!',
+  'homeInfo.greetingAfternoon': '좋은 오후예요!',
+  'homeInfo.greetingEvening': '좋은 저녁이에요!',
+  'homeInfo.greetingNight': '늦었어요, 푹 쉬세요',
 
   // ── Drawer ──────────────────────────────────────────────────
   'drawer.navMenu': '내비게이션 메뉴',

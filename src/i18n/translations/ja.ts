@@ -330,6 +330,7 @@ export const uiStrings: UIStrings = {
   'series.latestPost': '最新',
   'series.viewAll': 'すべて表示',
   'series.postCount': '{count}件の投稿',
+  'series.position': '{total} 本中 {current} 本目',
   'series.noPosts': 'このシリーズには投稿がありません',
   'series.rss': 'RSSフィード',
   'series.chromeExtension': 'Chrome拡張機能',
@@ -339,6 +340,10 @@ export const uiStrings: UIStrings = {
   'homeInfo.articles': '記事',
   'homeInfo.categories': 'カテゴリー',
   'homeInfo.tags': 'タグ',
+  'homeInfo.greetingMorning': 'おはよう！',
+  'homeInfo.greetingAfternoon': 'こんにちは！',
+  'homeInfo.greetingEvening': 'こんばんは！',
+  'homeInfo.greetingNight': '夜更かしはほどほどに',
 
   // ── ドロワー ──────────────────────────────────────────────────
   'drawer.navMenu': 'ナビゲーションメニュー',
