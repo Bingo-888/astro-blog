@@ -58,7 +58,9 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
   }
 
   <sider-content
-    class="flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+    class={cn('flex-1 overflow-x-hidden overflow-y-auto overscroll-contain', {
+      'toc-scroll-fade scrollbar-hidden': type !== HomeSiderType.POST,
+    })}
     data-type={type}
     data-default-type={defaultSegmentType}
   >
