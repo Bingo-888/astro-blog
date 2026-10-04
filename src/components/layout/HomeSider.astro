@@ -10,7 +10,6 @@ import { cn } from '@lib/utils';
 import type { BlogPost } from 'types/blog';
 import { getLocaleFromUrl } from '@/i18n';
 import HomeInfo from './HomeInfo.astro';
-import { ScrollProgress } from './ScrollProgress';
 import { TableOfContents } from './TableOfContents/index';
 
 interface Props {
@@ -38,11 +37,10 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
   class={cn(
     isDrawer
       ? 'drawer-sider flex min-h-0 flex-1 flex-col px-3'
-      : 'page-home-sider sider-card sticky self-start flex w-64 shrink-0 flex-col items-stretch tablet:hidden px-3',
+      : 'page-home-sider sider-column sticky self-start flex w-64 shrink-0 flex-col items-stretch tablet:hidden px-3 pb-4',
     className,
   )}
   transition:name={isDrawer ? 'page-home-sider-drawer' : 'page-home-sider'}
-  data-sider-type={type}
 >
   {
     type === HomeSiderType.POST && (
@@ -98,8 +96,6 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
       <SeriesNavigation client:load prevPost={prevPost} nextPost={nextPost} className="shrink-0" locale={locale} />
     )
   }
-
-  {!isDrawer && <ScrollProgress client:only="react" className="sider-progress shrink-0 px-1 pt-3 pb-4" />}
 </div>
 
 <script>
@@ -271,31 +267,22 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
   }
 
   /*
-   * 桌面侧栏是一张悬浮的卡片：吸顶时与视口上下各留 1rem。
-   * 页头可见时（未隐藏）整体下移到页头下方，页头随下滚隐藏（-translate-y-full）后回到 1rem。
-   * 文章页的目录自己滚动，需要固定高度；其它页面按内容收缩，最高不超过视口。
+   * 页头可见时（未隐藏）侧栏吸顶偏移到页头下方，避免 sticky 内容与固定页头重叠。
+   * 页头随下滚隐藏（-translate-y-full）后恢复 top-0，保持原有吸顶状态。
+   * 仅桌面宽度生效（>992px）：移动端抽屉内的 sider 不适用。
    */
   .page-home-sider {
-    --sider-top: 1rem;
+    --sider-top: 0rem;
     top: var(--sider-top);
-    margin-block: 1rem;
+    height: calc(100vh - var(--sider-top));
     transition:
       top 480ms var(--ease-out-expo),
-      height 480ms var(--ease-out-expo),
-      max-height 480ms var(--ease-out-expo);
-  }
-
-  .page-home-sider[data-sider-type='post'] {
-    height: calc(100vh - var(--sider-top) - 1rem);
-  }
-
-  .page-home-sider:not([data-sider-type='post']) {
-    max-height: calc(100vh - var(--sider-top) - 1rem);
+      height 480ms var(--ease-out-expo);
   }
 
   @media (width > 992px) {
     :global(body:has(#site-header:not(.-translate-y-full))) .page-home-sider {
-      --sider-top: 5rem;
+      --sider-top: 4.25rem;
     }
   }
 
@@ -304,21 +291,18 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
     min-height: 0;
   }
 
-  /* 首页只有概览一个面板，按内容排版即可，让卡片高度随内容收缩。 */
-  sider-content[data-type='home'] .sider-slot {
-    position: static;
-  }
-
   .sider-slot {
     position: absolute;
     top: auto;
-    left: 0;
-    right: 0;
+    left: var(--sider-bleed, 0);
+    right: var(--sider-bleed, 0);
   }
 
   @media (768px >= width) {
     .sider-slot {
       position: relative;
+      left: auto;
+      right: auto;
     }
   }
 

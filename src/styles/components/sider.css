@@ -1,24 +1,30 @@
 /*
-  Sider: the desktop card (HomeSider.astro) and the profile + navigation shared with the mobile drawer
+  Sider: the desktop column (HomeSider.astro) and the profile + navigation shared with the mobile drawer
   (HomeInfo.astro). One markup, two layouts: data-variant="sider" stacks the profile, "drawer" sets it
   in a row so the navigation starts within thumb reach.
+
+  On desktop the sider has no surface of its own: it stands on the page background, so it matches the
+  article paper at the top and the footer area below, and only a fading silk thread divides the two.
 */
 
-.sider-card {
-  --sider-surface: hsl(var(--card));
-  border-radius: 1.5rem;
-  background: color-mix(in oklab, hsl(var(--card)) 78%, transparent);
-  box-shadow:
-    inset 0 0 0 1px hsl(var(--primary) / 0.1),
-    0 1.75rem 3rem -2.25rem rgb(233 84 107 / 0.32),
-    0 0.25rem 0.75rem -0.5rem rgb(40 20 40 / 0.06);
+.sider-column {
+  --sider-surface: var(--gradient-bg-start);
 }
 
-:root.dark .sider-card {
-  background: color-mix(in oklab, hsl(var(--card)) 72%, transparent);
-  box-shadow:
-    inset 0 0 0 1px hsl(var(--primary) / 0.12),
-    0 1.75rem 3rem -2rem rgb(0 0 0 / 0.55);
+.sider-column::after {
+  content: "";
+  position: absolute;
+  inset-block: 2rem;
+  right: 0;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--primary) / 0.18) 18%,
+    hsl(var(--primary) / 0.18) 82%,
+    transparent
+  );
+  pointer-events: none;
 }
 
 .drawer-sider {
@@ -26,9 +32,12 @@
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
-/* The silk TOC already traces reading progress; a second bar beside it would only repeat it. */
-.page-home-sider:has([data-slot-type="directory"]:not(.hidden)) .sider-progress {
-  display: none;
+/* The avatar halo and focus rings reach past the column edge; give the clipped scroller room for them. */
+.drawer-sider sider-content,
+.sider-column sider-content {
+  --sider-bleed: 0.5rem;
+  margin-inline: calc(var(--sider-bleed) * -1);
+  padding-inline: var(--sider-bleed);
 }
 
 /* ── Profile ─────────────────────────────────────────────── */
@@ -159,7 +168,7 @@
 }
 
 @media (hover: hover) {
-  .home-stat:hover {
+  .home-info[data-variant="drawer"] .home-stat:hover {
     background: hsl(var(--primary) / 0.08);
   }
 
@@ -189,6 +198,27 @@
 
 .home-info[data-variant="sider"] .home-description {
   text-wrap: balance;
+}
+
+/* Desktop stats stay inline Shoka-style: numbers over labels, split by short hairlines rather than boxed. */
+.home-info[data-variant="sider"] .home-stats {
+  gap: 0;
+  margin-top: 0.75rem;
+}
+
+.home-info[data-variant="sider"] .home-stat {
+  position: relative;
+  background: none;
+  border-radius: 0;
+}
+
+.home-info[data-variant="sider"] .home-stat + .home-stat::before {
+  content: "";
+  position: absolute;
+  inset-block: 28%;
+  left: 0;
+  width: 1px;
+  background: hsl(var(--border));
 }
 
 .home-info[data-variant="sider"] .home-social {
@@ -419,8 +449,14 @@ html:is([data-motion="reduced"], .motion-off) :is(.home-nav-collapse, .home-nav-
   min-height: 2.75rem;
 }
 
+/* Desktop keeps prev/next as plain text links; the cells are a touch affordance for the drawer. */
+.sider-column .series-nav-link {
+  padding-inline: 0.25rem;
+  background: none;
+}
+
 @media (hover: hover) {
-  .series-nav-link:hover {
+  .drawer-sider .series-nav-link:hover {
     background: hsl(var(--primary) / 0.08);
   }
 
@@ -429,7 +465,7 @@ html:is([data-motion="reduced"], .motion-off) :is(.home-nav-collapse, .home-nav-
     color: hsl(var(--primary));
   }
 
-  .series-nav-action:hover {
+  .drawer-sider .series-nav-action:hover {
     background: hsl(var(--foreground) / 0.05);
   }
 }
