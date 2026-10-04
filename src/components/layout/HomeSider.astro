@@ -36,29 +36,34 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
 
 <div
   class={cn(
-    'page-home-sider shadow-home-sider sticky top-0 tablet:overscroll-none self-start flex min-w-64 max-w-64 flex-col items-stretch tablet:hidden overflow-auto h-screen px-2 scroll-gutter-stable',
+    isDrawer
+      ? 'drawer-sider flex min-h-0 flex-1 flex-col px-3'
+      : 'page-home-sider sider-card sticky self-start flex w-64 shrink-0 flex-col items-stretch tablet:hidden px-3',
     className,
   )}
   transition:name={isDrawer ? 'page-home-sider-drawer' : 'page-home-sider'}
+  data-sider-type={type}
 >
   {
     type === HomeSiderType.POST && (
-      <HomeSiderSegmented
-        client:only="react"
-        className="my-4 tablet:mb-0 flex justify-between text-sm/6 w-auto"
-        itemClass="grow"
-        defaultValue={defaultSegmentType}
-      />
+      <div data-sider-segmented class={isDrawer ? 'shrink-0 pb-3' : 'shrink-0 pt-3 pb-2'}>
+        <HomeSiderSegmented
+          client:only="react"
+          className="flex w-full justify-between text-sm/6"
+          itemClass="grow"
+          defaultValue={defaultSegmentType}
+        />
+      </div>
     )
   }
 
   <sider-content
-    class="flex-1 overflow-x-hidden overflow-y-auto"
+    class="flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
     data-type={type}
     data-default-type={defaultSegmentType}
   >
     <div slot="info" class="sider-slot" data-slot-type="info">
-      <HomeInfo className={type === HomeSiderType.HOME ? 'pt-18 md:pt-0' : ''} />
+      <HomeInfo isDrawer={isDrawer} />
     </div>
     <div slot="directory" class="sider-slot overflow-hidden h-full" data-slot-type="directory">
       {type === HomeSiderType.POST && <TableOfContents client:only="react" isDrawer={isDrawer} enableNumbering={post?.data.tocNumbering ?? true} />}
@@ -68,10 +73,10 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
     </div>
   </sider-content>
 
-  <!-- 内联脚本：在 DOM 解析后立即隐藏不需要的内容，避免闪烁 -->
+  <!-- 内联脚本：在 DOM 解析后立即隐藏不需要的内容，避免闪烁（桌面与抽屉各一份，只处理自己所在的侧栏） -->
   <script is:inline data-astro-rerun>
     (function () {
-      const container = document.querySelector('sider-content');
+      const container = document.currentScript?.parentElement?.querySelector('sider-content');
       if (!container) return;
 
       const defaultType = container.getAttribute('data-default-type') || 'info';
@@ -88,11 +93,11 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
 
   {
     type === HomeSiderType.POST && (
-      <SeriesNavigation client:load prevPost={prevPost} nextPost={nextPost} className="w-full px-2" locale={locale} />
+      <SeriesNavigation client:load prevPost={prevPost} nextPost={nextPost} className="shrink-0" locale={locale} />
     )
   }
 
-  <ScrollProgress client:only="react" className="mt-auto w-full rounded-full pt-4" />
+  {!isDrawer && <ScrollProgress client:only="react" className="sider-progress shrink-0 px-1 pt-3 pb-4" />}
 </div>
 
 <script>
@@ -105,7 +110,7 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
   const EASE_IN_QUART = 'cubic-bezier(0.5, 0, 0.75, 0)';
   /** Rows that cascade in on a lively switch: profile blocks and nav buttons, TOC entries, series posts. */
   const CASCADE_ROWS =
-    '[data-home-info-container] > :not([data-home-nav]), [data-home-nav] > *, .toc-container > :not([data-toc-rail]), [data-series-list] > *';
+    '[data-home-profile] > *, [data-home-nav] > *, .toc-container > :not([data-toc-rail]), [data-series-list] > *';
   const CASCADE_SPREAD_MS = 180;
 
   type Frame = { opacity: string; translate: string };
@@ -264,22 +269,42 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
   }
 
   /*
-   * 页头可见时（未隐藏）侧栏吸顶偏移到页头下方，避免 sticky 内容与固定页头重叠。
-   * 页头随下滚隐藏（-translate-y-full）后恢复 top-0，保持原有吸顶状态。
-   * 仅桌面宽度生效（>992px）：移动端抽屉内的 sider 不适用。
+   * 桌面侧栏是一张悬浮的卡片：吸顶时与视口上下各留 1rem。
+   * 页头可见时（未隐藏）整体下移到页头下方，页头随下滚隐藏（-translate-y-full）后回到 1rem。
+   * 文章页的目录自己滚动，需要固定高度；其它页面按内容收缩，最高不超过视口。
    */
+  .page-home-sider {
+    --sider-top: 1rem;
+    top: var(--sider-top);
+    margin-block: 1rem;
+    transition:
+      top 480ms var(--ease-out-expo),
+      height 480ms var(--ease-out-expo),
+      max-height 480ms var(--ease-out-expo);
+  }
+
+  .page-home-sider[data-sider-type='post'] {
+    height: calc(100vh - var(--sider-top) - 1rem);
+  }
+
+  .page-home-sider:not([data-sider-type='post']) {
+    max-height: calc(100vh - var(--sider-top) - 1rem);
+  }
+
   @media (width > 992px) {
     :global(body:has(#site-header:not(.-translate-y-full))) .page-home-sider {
-      top: 4.25rem;
-      height: calc(100vh - 4.25rem);
-      transition:
-        top 480ms var(--ease-out-expo),
-        height 480ms var(--ease-out-expo);
+      --sider-top: 5rem;
     }
   }
 
   sider-content {
     position: relative;
+    min-height: 0;
+  }
+
+  /* 首页只有概览一个面板，按内容排版即可，让卡片高度随内容收缩。 */
+  sider-content[data-type='home'] .sider-slot {
+    position: static;
   }
 
   .sider-slot {
