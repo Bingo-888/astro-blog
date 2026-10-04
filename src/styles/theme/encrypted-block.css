@@ -1,6 +1,6 @@
 /* Encrypted block container */
 .encrypted-block {
-  @apply my-4 rounded-lg border border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-600 dark:bg-gray-800/50;
+  @apply my-4 rounded-xl border border-primary/25 border-dashed bg-muted/50;
 }
 
 /* Locked state layout */
@@ -9,7 +9,7 @@
 }
 
 .encrypted-block-icon {
-  @apply text-3xl text-gray-400 transition-colors dark:text-gray-500;
+  @apply text-3xl text-primary/70 transition-colors;
 }
 
 .encrypted-block-icon-error {
@@ -21,11 +21,11 @@
 }
 
 .encrypted-block-input {
-  @apply h-9 w-48 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none transition-colors focus:border-blue-400 focus:ring-1 focus:ring-blue-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:focus:border-blue-500 dark:focus:ring-blue-500;
+  @apply h-9 w-48 rounded-lg border border-border bg-background px-3 text-foreground text-sm outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground/70 focus:border-primary/60 focus:ring-3 focus:ring-primary/15;
 }
 
 .encrypted-block-btn {
-  @apply flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600;
+  @apply flex h-9 w-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary transition-colors hover:border-primary/50 hover:bg-primary/20 disabled:opacity-50;
 }
 
 /* Unlocked content area */
@@ -46,7 +46,7 @@
 }
 
 .encrypted-post-icon {
-  @apply text-5xl text-gray-400 transition-colors dark:text-gray-500;
+  @apply text-5xl text-primary/70 transition-colors;
 }
 
 .encrypted-post-icon-error {
@@ -54,11 +54,11 @@
 }
 
 .encrypted-post-title {
-  @apply text-lg font-semibold text-gray-700 dark:text-gray-300;
+  @apply font-semibold text-foreground text-lg;
 }
 
 .encrypted-post-subtitle {
-  @apply text-sm text-gray-500 dark:text-gray-400;
+  @apply text-muted-foreground text-sm;
 }
 
 .encrypted-post-input-group {
@@ -66,11 +66,11 @@
 }
 
 .encrypted-post-input {
-  @apply h-10 w-56 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none transition-colors focus:border-blue-400 focus:ring-1 focus:ring-blue-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:focus:border-blue-500 dark:focus:ring-blue-500;
+  @apply h-10 w-56 rounded-lg border border-border bg-background px-3 text-foreground text-sm outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground/70 focus:border-primary/60 focus:ring-3 focus:ring-primary/15;
 }
 
 .encrypted-post-btn {
-  @apply flex h-10 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-4 text-sm text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600;
+  @apply flex h-10 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-4 text-primary text-sm transition-colors hover:border-primary/50 hover:bg-primary/20 disabled:opacity-50;
 }
 
 .encrypted-post-error-text {
