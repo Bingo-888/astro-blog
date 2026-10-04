@@ -268,6 +268,11 @@
   background: hsl(var(--foreground) / 0.08);
 }
 
+/* Rows span the clipped scroller edge to edge, so the focus ring is drawn inside them. */
+:is(.home-nav-row, .home-nav-child, .home-stat):focus-visible {
+  outline-offset: -2px;
+}
+
 .home-nav-row[aria-current="page"] {
   background-image: var(--gradient-shoka-button);
   color: #fff;
@@ -358,4 +363,82 @@
 
 html:is([data-motion="reduced"], .motion-off) :is(.home-nav-collapse, .home-nav-chevron) {
   transition: none;
+}
+
+/* ── Series prev / next (SeriesNavigation.tsx) ───────────── */
+
+.series-nav-link,
+.series-nav-action {
+  border-radius: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 200ms var(--ease-out-quart),
+    color 200ms var(--ease-out-quart),
+    scale 200ms var(--ease-out-quart);
+}
+
+.series-nav-link {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.5rem 0.625rem;
+  background: hsl(var(--foreground) / 0.035);
+}
+
+.series-nav-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+
+.series-nav-title {
+  max-width: 100%;
+  overflow: hidden;
+  color: hsl(var(--foreground) / 0.8);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 200ms var(--ease-out-quart);
+}
+
+.series-nav-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 2.25rem;
+  font-size: 0.75rem;
+}
+
+.drawer-sider .series-nav-action {
+  min-height: 2.75rem;
+}
+
+@media (hover: hover) {
+  .series-nav-link:hover {
+    background: hsl(var(--primary) / 0.08);
+  }
+
+  .series-nav-link:hover .series-nav-title,
+  .series-nav-action:hover {
+    color: hsl(var(--primary));
+  }
+
+  .series-nav-action:hover {
+    background: hsl(var(--foreground) / 0.05);
+  }
+}
+
+:is(.series-nav-link, .series-nav-action):active {
+  scale: 0.97;
+  transition-duration: 80ms;
+}
+
+:is(.series-nav-link, .series-nav-action):focus-visible {
+  outline-offset: -2px;
 }

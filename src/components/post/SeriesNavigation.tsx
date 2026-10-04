@@ -28,77 +28,66 @@ export function SeriesNavigation({ prevPost, nextPost, className, locale }: Seri
   const scrollBehavior: ScrollBehavior = 'smooth';
 
   return (
-    <div className={cn('mt-4 flex flex-col gap-3 border-border border-t pt-4 md:mt-0 md:pt-2', className)}>
+    <div className={cn('mt-3 flex flex-col gap-2 border-border/80 border-t pt-3', className)}>
       {/* 文章导航 */}
-      <div className="flex items-center justify-between gap-2">
-        {/* 上一篇 */}
+      <div className="grid grid-cols-2 gap-1.5">
         {prevPost ? (
           isMounted && (
             <a
               href={localizedPath(routeBuilder(Routes.Post, prevPost), locale)}
-              className={cn(
-                'group flex items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors',
-                'text-muted-foreground hover:bg-accent hover:text-primary',
-                'min-w-0 max-w-[45%] flex-1',
-              )}
+              className="series-nav-link"
               title={prevPost.title}
             >
-              <RiArrowLeftSLine className="h-4 w-4 shrink-0" />
-              <span className="truncate text-xs">{prevPost.title}</span>
+              <span className="series-nav-label">
+                <RiArrowLeftSLine className="size-3.5 shrink-0" />
+                {t('post.prevPost')}
+              </span>
+              <span className="series-nav-title">{prevPost.title}</span>
             </a>
           )
         ) : (
-          <div className="max-w-[45%] flex-1" />
+          <div />
         )}
-
-        {/* 下一篇 */}
         {nextPost ? (
           isMounted && (
             <a
               href={localizedPath(routeBuilder(Routes.Post, nextPost), locale)}
-              className={cn(
-                'group flex items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors',
-                'text-muted-foreground hover:bg-accent hover:text-primary',
-                'min-w-0 max-w-[45%] flex-1 justify-end text-right',
-              )}
+              className="series-nav-link items-end text-right"
               title={nextPost.title}
             >
-              <span className="truncate text-xs">{nextPost.title}</span>
-              <RiArrowRightSLine className="h-4 w-4 shrink-0" />
+              <span className="series-nav-label">
+                {t('post.nextPost')}
+                <RiArrowRightSLine className="size-3.5 shrink-0" />
+              </span>
+              <span className="series-nav-title">{nextPost.title}</span>
             </a>
           )
         ) : (
-          <div className="max-w-[45%] flex-1" />
+          <div />
         )}
       </div>
 
       {/* 回到顶部和滚到底部 */}
       {isMounted && (
-        <div className="flex justify-center gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           <button
             type="button"
             onClick={() => window.scrollTo({ top: 0, behavior: scrollBehavior })}
-            className={cn(
-              'flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 transition-colors',
-              'text-muted-foreground text-xs hover:bg-accent hover:text-primary',
-            )}
+            className="series-nav-action"
             title={t('floating.backToTop')}
             aria-label={t('floating.backToTop')}
           >
-            <RiArrowUpSLine className="h-4 w-4" />
+            <RiArrowUpSLine className="size-4" />
             {t('floating.backToTop')}
           </button>
           <button
             type="button"
             onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: scrollBehavior })}
-            className={cn(
-              'flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 transition-colors',
-              'text-muted-foreground text-xs hover:bg-accent hover:text-primary',
-            )}
+            className="series-nav-action"
             title={t('floating.scrollToBottom')}
             aria-label={t('floating.scrollToBottom')}
           >
-            <RiArrowDownSLine className="h-4 w-4" />
+            <RiArrowDownSLine className="size-4" />
             {t('floating.scrollToBottom')}
           </button>
         </div>
