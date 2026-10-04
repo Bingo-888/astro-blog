@@ -246,6 +246,11 @@ html:is([data-motion="reduced"], .motion-off) .home-greeting {
   }
 }
 
+/* Drawer: the halo reaches 4.5px past the avatar; inset it so its outer edge lines up with the content. */
+.home-info[data-variant="drawer"] .home-avatar {
+  margin-inline-start: 4.5px;
+}
+
 /* Desktop: the stacked, centred Shoka profile. */
 .home-info[data-variant="sider"] .home-identity {
   flex-direction: column;
@@ -754,6 +759,11 @@ html:is([data-motion="reduced"], .motion-off) :is(.series-progress-default, .ser
   height: 2.75rem;
 }
 
+/* The chevron glyphs sit ~1.0625rem inside their 2.75rem buttons; the meta line starts where they do. */
+.drawer-sider .series-progress-meta {
+  padding-inline: 1.0625rem;
+}
+
 .series-progress-actions {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -794,7 +804,7 @@ html:is([data-motion="reduced"], .motion-off) :is(.series-progress-default, .ser
 .series-thread-item {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   min-height: 2.75rem;
   padding: 0.5rem 0.75rem 0.5rem 0;
@@ -813,11 +823,12 @@ html:is([data-motion="reduced"], .motion-off) :is(.series-progress-default, .ser
 }
 
 .series-thread-item:first-child::before {
-  top: 50%;
+  top: calc(0.5rem + 0.875rem * 0.8);
 }
 
 .series-thread-item:last-child::before {
-  bottom: 50%;
+  bottom: auto;
+  height: calc(0.5rem + 0.875rem * 0.8);
 }
 
 .series-thread-item:only-child::before {
@@ -830,6 +841,8 @@ html:is([data-motion="reduced"], .motion-off) :is(.series-progress-default, .ser
   width: 0.5rem;
   height: 0.5rem;
   margin-inline-start: calc(var(--bead-x) - 0.25rem);
+  /* Centred on the first line of the title (0.875rem × 1.6), so a wrapped title keeps its bead up top. */
+  margin-top: calc((0.875rem * 1.6 - 0.5rem) / 2);
   border-radius: 9999px;
   background: var(--sider-surface);
   box-shadow: inset 0 0 0 1.5px hsl(var(--primary) / 0.45);

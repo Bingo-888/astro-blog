@@ -65,6 +65,10 @@
   touch-action: pan-y pinch-zoom;
 }
 
+.drawer-sheet:focus {
+  outline: none;
+}
+
 .drawer-sheet[data-dragging],
 .drawer-overlay[data-dragging] {
   transition: none;
@@ -239,4 +243,9 @@ html:is([data-motion="reduced"], .motion-off) {
 html:has(#mobile-drawer[data-state="open"]) #mobile-menu-container {
   opacity: 0;
   transition: opacity 0s linear var(--drawer-handoff);
+}
+
+/* Night: the hamburger and the sheet's X share a quieter circle, still identical for the hand-off. */
+:root.dark :is(#mobile-menu-container button, .drawer-close) {
+  background-color: rgb(255 255 255 / 0.08);
 }

@@ -23,6 +23,7 @@ const locale = getLocaleFromUrl(Astro.url.pathname);
   aria-label={t(locale, 'drawer.navMenu')}
   aria-modal="true"
   data-state="closed"
+  tabindex="-1"
 >
   {/* The close button sits exactly where the hamburger morphs into an X, so the hand-off reads as one control. */}
   <div class="drawer-head">
@@ -64,6 +65,10 @@ const locale = getLocaleFromUrl(Astro.url.pathname);
   /** Rows that follow the sheet in on open, in reading order. */
   const ENTRANCE_ROWS =
     '[data-home-profile] > *, [data-home-nav] > *, .sider-slot:not(.hidden) .toc-container > :not([data-toc-rail]), .sider-slot:not(.hidden) [data-series-list] > *, [data-sider-segmented]';
+
+  let lastInputWasKeyboard = false;
+  document.addEventListener('keydown', () => (lastInputWasKeyboard = true), true);
+  document.addEventListener('pointerdown', () => (lastInputWasKeyboard = false), true);
 
   class DrawerController {
     private drawer: HTMLElement;
@@ -120,7 +125,9 @@ const locale = getLocaleFromUrl(Astro.url.pathname);
       this.drawer.dataset.state = 'open';
       this.overlay.classList.add('is-open');
       this.isolateBackground();
-      this.closeBtn.focus({ preventScroll: true });
+      // Keyboard users land on the close button; a tap or click focuses the sheet itself, so no focus
+      // ring lights up on a pointer-opened drawer (and later taps don't inherit "keyboard" modality).
+      (lastInputWasKeyboard ? this.closeBtn : this.drawer).focus({ preventScroll: true });
     }
 
     private close() {
