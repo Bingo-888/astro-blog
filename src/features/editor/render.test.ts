@@ -241,7 +241,7 @@ test('content switches preserve the configured published behavior', async () => 
 });
 
 test('the repository Shoka feature article renders its complete set of documented examples', async () => {
-  const article = await readFile(new URL('../../content/blog/note/shoka-features.md', import.meta.url), 'utf8');
+  const article = await readFile(new URL('./shoka-example.md', import.meta.url), 'utf8');
   const body = article.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
   const { html, headings } = await renderEditorMarkdown(body, { contentConfig: { enableEncryptedBlock: true } });
   assert.ok(headings.length > 15);

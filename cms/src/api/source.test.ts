@@ -57,6 +57,23 @@ test('reads and saves the complete UTF-8 source without rewriting frontmatter or
   assert.deepEqual(await fs.readdir(f.contentRoot), ['post.md']);
 });
 
+test('unchanged saves preserve the file inode and timestamp while still enforcing conflicts', async (t) => {
+  const f = await fixture();
+  t.after(f.cleanup);
+  const file = path.join(f.contentRoot, 'post.md');
+  const before = await fs.stat(file);
+  const saved = await f.write({ postId: 'post.md', source: f.source, expectedSource: f.source });
+  assert.equal(saved.status, 200);
+  const after = await fs.stat(file);
+  assert.equal(after.ino, before.ino);
+  assert.equal(after.mtimeMs, before.mtimeMs);
+  assert.deepEqual(await fs.readFile(file), Buffer.from(f.source));
+  const external = `${f.source}external`;
+  await fs.writeFile(file, external);
+  assert.equal((await f.write({ postId: 'post.md', source: f.source, expectedSource: f.source })).status, 409);
+  assert.equal(await fs.readFile(file, 'utf8'), external);
+});
+
 test('rejects stale saves and serializes concurrent saves to the same file', async (t) => {
   const f = await fixture();
   t.after(f.cleanup);

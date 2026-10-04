@@ -36,11 +36,13 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
   const [error, setError] = useState('');
   const [cms, setCMS] = useState<{ origin: string; postId: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const pendingSave = useRef<{ requestId: string; draftId: string; postId: string; source: string } | null>(null);
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const editor = useRef<CodeEditorHandle>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const panelTrigger = useRef<HTMLElement | null>(null);
+  const resizeStart = useRef<{ x: number; split: number; width: number } | null>(null);
   const copySource = useRef<HTMLTextAreaElement>(null);
   const current = useRef(draft);
   current.current = draft;
@@ -67,6 +69,8 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
         typeof event.data.source === 'string' &&
         typeof event.data.postId === 'string'
       ) {
+        pendingSave.current = null;
+        setSaving(false);
         let restored: EditorDraft | null = null;
         try {
           if (typeof event.data.restoreDraftId === 'string')
@@ -78,6 +82,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
           // A failed restore below preserves the currently visible draft.
         }
         if (typeof event.data.restoreDraftId === 'string' && restored?.filename !== event.data.postId) {
+          setCMS(null);
           setError('无法恢复 CMS 草稿，当前原文已保留。请复制或下载后，从文章列表重新打开文件。');
           window.parent.postMessage({ type: 'koharu-cms-detach', postId: event.data.postId }, event.origin);
           return;
@@ -98,9 +103,22 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
         window.parent.postMessage({ type: 'koharu-cms-opened', postId: event.data.postId, draftId: opened.id }, event.origin);
       }
       if (event.data?.type === 'koharu-cms-result') {
+        const pending = pendingSave.current;
+        if (
+          !pending ||
+          event.data.requestId !== pending.requestId ||
+          event.data.postId !== pending.postId ||
+          current.current.id !== pending.draftId
+        )
+          return;
+        pendingSave.current = null;
         setSaving(false);
-        if (event.data.error) setError(event.data.error);
-        else setStatus('已保存到博客文件');
+        if (typeof event.data.error === 'string' && event.data.error) {
+          setError(event.data.error);
+          setStatus('当前修改尚未保存到博客');
+        } else {
+          setStatus(current.current.source === pending.source ? '已保存到博客文件' : '已保存提交时的版本，后续修改仍待保存。');
+        }
       }
     };
     window.addEventListener('message', receive);
@@ -190,6 +208,7 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
   };
   const detachCMS = () => {
     if (cms) window.parent.postMessage({ type: 'koharu-cms-detach', postId: cms.postId }, cms.origin);
+    pendingSave.current = null;
     setCMS(null);
     setSaving(false);
   };
@@ -267,14 +286,17 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
     }
   };
   const saveCMS = () => {
-    if (!cms || saving) return;
+    if (!cms || pendingSave.current) return;
+    const { id: draftId, source } = current.current;
+    const requestId = crypto.randomUUID();
+    pendingSave.current = { requestId, draftId, postId: cms.postId, source };
     setSaving(true);
     setStatus('正在保存到博客…');
     setError('');
-    window.parent.postMessage({ type: 'koharu-cms-save', postId: cms.postId, source: draft.source }, cms.origin);
+    window.parent.postMessage({ type: 'koharu-cms-save', postId: cms.postId, requestId, source }, cms.origin);
   };
   const loadExample = async () => {
-    const { default: source } = await import('../../content/blog/note/shoka-features.md?raw');
+    const { default: source } = await import('./shoka-example.md?raw');
     activate(createDraft(source, 'shoka-features.md'));
   };
 
@@ -401,7 +423,30 @@ export default function Editor({ ogEndpoint = '/api/editor/og' }: Props) {
             max="72"
             value={split}
             onChange={(event) => setSplit(Number(event.target.value))}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              const bounds = event.currentTarget.closest('.editor-panes')?.getBoundingClientRect();
+              if (!bounds?.width) return;
+              event.preventDefault();
+              resizeStart.current = { x: event.clientX, split, width: bounds.width };
+              event.currentTarget.focus({ preventScroll: true });
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+              const start = resizeStart.current;
+              if (start) setSplit(Math.max(28, Math.min(72, start.split + ((event.clientX - start.x) / start.width) * 100)));
+            }}
+            onPointerUp={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              resizeStart.current = null;
+            }}
+            onPointerCancel={() => {
+              resizeStart.current = null;
+            }}
             aria-label="调整源码与预览宽度"
+            aria-valuetext={`源码 ${Math.round(split)}%，预览 ${Math.round(100 - split)}%`}
           />
         </div>
         <section className="editor-preview-pane" aria-label="实时预览区">

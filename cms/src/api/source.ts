@@ -149,6 +149,8 @@ async function saveSource(root: string, postId: string, source: string, expected
       }
     };
     await verifyCurrent();
+    // Avoid content HMR and disk churn when a save has no changes; conflicts are still checked above.
+    if (source === expectedSource) return;
     const stats = await fs.stat(filePath);
     const temporaryPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.koharu-${randomUUID()}.tmp`);
     let ownsTemporaryFile = false;

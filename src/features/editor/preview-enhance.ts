@@ -1,31 +1,16 @@
 import DOMPurify from 'dompurify';
 
 import { type PreviewMetadataResponse, readLinkMetadata } from './link-metadata';
+import { createLinkRequestPool } from './link-request-pool';
 
-interface CachedLink {
-  expires: number;
-  value: Promise<PreviewMetadataResponse>;
-}
-
-const linkCache = new Map<string, CachedLink>();
-const MAX_CACHED_LINKS = 100;
-let mermaidId = 0;
-let activeLinkRequests = 0;
-const linkRequestQueue: (() => void)[] = [];
-const decryptedScopes = new WeakMap<HTMLElement, () => void>();
-
-async function fetchLink(endpoint: string, url: string): Promise<PreviewMetadataResponse> {
-  const key = `${endpoint}\n${url}`;
-  const cached = linkCache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.value;
-  const value = (async () => {
-    if (activeLinkRequests >= 3) await new Promise<void>((resolve) => linkRequestQueue.push(resolve));
-    activeLinkRequests += 1;
+const requestLink = createLinkRequestPool<PreviewMetadataResponse>({
+  async load(key, signal) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
+    const abort = () => controller.abort();
+    signal.addEventListener('abort', abort, { once: true });
+    const timeout = setTimeout(abort, 10_000);
     try {
-      const target = new URL(endpoint, location.href);
-      target.searchParams.set('url', url);
+      const target = new URL(key);
       // Same-origin deployments may require the host's preview login; never send credentials to another instance.
       const response = await fetch(target, {
         signal: controller.signal,
@@ -35,20 +20,17 @@ async function fetchLink(endpoint: string, url: string): Promise<PreviewMetadata
       return await readLinkMetadata(response);
     } finally {
       clearTimeout(timeout);
-      activeLinkRequests -= 1;
-      linkRequestQueue.shift()?.();
+      signal.removeEventListener('abort', abort);
     }
-  })();
-  const entry = { expires: Date.now() + 5 * 60_000, value };
-  linkCache.set(key, entry);
-  void value.catch(() => {
-    if (linkCache.get(key) === entry) linkCache.delete(key);
-  });
-  while (linkCache.size > MAX_CACHED_LINKS) {
-    const oldest = linkCache.keys().next().value;
-    if (oldest) linkCache.delete(oldest);
-  }
-  return value;
+  },
+});
+let mermaidId = 0;
+const decryptedScopes = new WeakMap<HTMLElement, () => void>();
+
+function fetchLink(endpoint: string, url: string, signal: AbortSignal): Promise<PreviewMetadataResponse> {
+  const target = new URL(endpoint, location.href);
+  target.searchParams.set('url', url);
+  return requestLink(target.href, signal);
 }
 
 /** Scope every listener and deferred DOM write to one preview revision. */
@@ -56,6 +38,7 @@ export function enhanceEditorPreview(container: HTMLElement): () => void {
   const doc = container.ownerDocument;
   const win = doc.defaultView;
   const cleanups: (() => void)[] = [];
+  const linkScope = new AbortController();
   let disposed = false;
   const live = (element: Element) => !disposed && container.contains(element);
 
@@ -187,7 +170,7 @@ export function enhanceEditorPreview(container: HTMLElement): () => void {
     const endpoint = block.dataset.editorOgEndpoint;
     if (!url || !endpoint) return;
     try {
-      const data = await fetchLink(endpoint, url);
+      const data = await fetchLink(endpoint, url, linkScope.signal);
       if (!live(block)) return;
       if (data.html && win) {
         const purifier = DOMPurify(win);
@@ -336,6 +319,7 @@ export function enhanceEditorPreview(container: HTMLElement): () => void {
 
   return () => {
     disposed = true;
+    linkScope.abort();
     for (const cleanup of cleanups) cleanup();
     deferred.clear();
   };

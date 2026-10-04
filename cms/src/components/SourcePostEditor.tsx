@@ -12,7 +12,6 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
   const frame = useRef<HTMLIFrameElement>(null);
   const baseline = useRef<string | null>(null);
   const sessionDraftId = useRef<string | null>(null);
-  const saving = useRef(false);
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
   const [error, setError] = useState('');
@@ -24,6 +23,7 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
     let cancelled = false;
     let opening = false;
     let detached = false;
+    let saving = false;
     const editorOrigin = new URL(DEV_SERVER_URL).origin;
     const send = (data: object) => {
       // WebKit must keep the caller frame for the editor to validate the message source.
@@ -75,12 +75,18 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
         event.data?.type !== 'koharu-cms-save' ||
         event.data.postId !== postId ||
         typeof event.data.source !== 'string' ||
+        typeof event.data.requestId !== 'string' ||
+        !event.data.requestId ||
         baseline.current === null ||
-        detached ||
-        saving.current
+        detached
       )
         return;
-      saving.current = true;
+      const { requestId } = event.data;
+      if (saving) {
+        send({ type: 'koharu-cms-result', postId, requestId, error: '上一版本仍在保存，请稍后再次保存当前修改。' });
+        return;
+      }
+      saving = true;
       try {
         const response = await fetch('/api/cms/source', {
           method: 'POST',
@@ -96,12 +102,18 @@ export function SourcePostEditor({ postId, onClose, onSaved }: Props) {
           );
         if (cancelled) return;
         baseline.current = data.source;
-        send({ type: 'koharu-cms-result' });
+        send({ type: 'koharu-cms-result', postId, requestId });
         onSavedRef.current?.();
       } catch (failure) {
-        if (!cancelled) send({ type: 'koharu-cms-result', error: failure instanceof Error ? failure.message : '保存失败' });
+        if (!cancelled)
+          send({
+            type: 'koharu-cms-result',
+            postId,
+            requestId,
+            error: failure instanceof Error ? failure.message : '保存失败',
+          });
       } finally {
-        saving.current = false;
+        saving = false;
       }
     };
     window.addEventListener('message', receive);

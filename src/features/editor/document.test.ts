@@ -28,3 +28,31 @@ test('property editing preserves a BOM, CRLF and body bytes', () => {
   assert.match(changed, /custom: null # 留住备注/);
   assert.equal(parseEditorDocument(changed).body, '\r\n原文\r\n');
 });
+
+test('empty frontmatter is parsed and updated without moving its delimiters into the body', () => {
+  for (const newline of ['\n', '\r\n']) {
+    for (const bom of ['', '\uFEFF']) {
+      for (const suffix of ['', `${newline}BODY${newline}`]) {
+        const source = `${bom}---${newline}---${suffix}`;
+        assert.deepEqual(parseEditorDocument(source), { data: {}, body: suffix ? `BODY${newline}` : '' });
+        const changed = updateEditorProperty(source, 'title', '新标题');
+        assert.equal(parseEditorDocument(changed).data.title, '新标题');
+        assert.equal(parseEditorDocument(changed).body, suffix ? `BODY${newline}` : '');
+        assert.ok(changed.startsWith(`${bom}---${newline}`));
+        assert.equal(changed.split('---').length, 3);
+      }
+    }
+  }
+});
+
+test('editing unrelated properties retains block-scalar trailing spaces and all kept newlines', () => {
+  for (const newline of ['\n', '\r\n']) {
+    const source = ['---', 'title: A', 'custom: |+', '  x  ', '', '', '---', 'BODY'].join(newline);
+    assert.equal(parseEditorDocument(source).data.custom, 'x  \n\n\n');
+    const changed = updateEditorProperty(source, 'title', 'B');
+    assert.equal(parseEditorDocument(changed).data.custom, 'x  \n\n\n');
+    assert.equal(parseEditorDocument(changed).data.title, 'B');
+    assert.equal(parseEditorDocument(changed).body, 'BODY');
+    if (newline === '\r\n') assert.ok(!/(?<!\r)\n/.test(changed));
+  }
+});

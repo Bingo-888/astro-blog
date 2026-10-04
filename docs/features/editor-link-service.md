@@ -79,6 +79,18 @@ location = /api/editor/og {
 
 如 nginx 与 Node 不在同一个容器或主机，将目标替换为服务内部地址。其余博客路由仍使用原有静态托管，不要求整个博客转为 Node。这里只反代指定路径，不能顺带公开 `/api/cms/`。
 
+### 已有 Dokploy 动态博客
+
+保留博客应用原来的 `docker/Dockerfile`、`dynamic` 构建阶段及 `KOHARU_SUITE_URL`。OG 服务单独创建一个 Application，使用同一版本源码、仓库根目录作为构建上下文，以及 `deploy/editor/Dockerfile`；不需要运行 CMS，也不需要把博客换成静态 nginx。
+
+服务运行时设置 `EDITOR_OG_ALLOWED_ORIGINS=*`，容器内端口为 `4323`，单副本，建议内存上限 `256M`。通过 Dokploy 的 Domains 把博客已有 HTTPS 域名的 `/api/editor/og` 路径转发到这个服务：Path 为 `/api/editor/og`，Internal Path 为 `/`，Strip Path 关闭。保留博客应用原来的 `/` 路由，较具体的 API 路由由 Traefik 转到 OG 服务；不要在 Advanced Ports 公开 `4323`。
+
+这样编辑器默认同源地址即可使用，其他站点的访客也可以把你的博客域名填作公开实例，无需增加域名或修改博客构建参数。若使用独立域名，则把服务 Domains 的 Path 设为 `/`，并通过编辑器设置或 `PUBLIC_EDITOR_OG_ENDPOINT` 指定完整接口。
+
+部署后核对实际容器状态与健康检查，再请求缺少 `url` 的接口（应返回 400 JSON），以及一个已知公网网页（应返回成功元数据）。最后确认博客首页、`/editor/` 和原来的动态路由仍正常。Dokploy 的部署步骤显示 done 只表示部署命令结束，不能代替实际容器与公开请求检查。
+
+参考：[Dokploy Domains 与路径转发](https://docs.dokploy.com/docs/core/domains)。
+
 ## 部署一个可共享的公开实例
 
 服务不绑定博客域名、Vercel 或本站部署。可以只运行 OG 容器，用自己的 HTTPS 域名提供 `/api/editor/og`，让其它网站的编辑器填写这个实例地址。仍然不需要数据库、Redis 或账号。

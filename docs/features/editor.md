@@ -71,3 +71,5 @@ EDITOR_TEST_URL=http://localhost:4321 EDITOR_TEST_BROWSER=webkit node tests/edit
 不传 `CMS_TEST_URL` 只验证公开页；可以将 `EDITOR_TEST_URL` 指向生产静态预览，检查打包后的 Worker 与交互。CMS 浏览器测试创建并清理一篇临时测试文章。
 
 Vercel 在静态页面之外自动部署 `api/editor/og.ts`；其他平台仍然可以静态托管 `/editor/` 与 `/editor/preview/`，可以为 `/api/editor/og` 追加同域反代，也可以填写已开放 CORS 的独立公开实例。部署示例和服务边界见链接预览服务文档。浏览器必须允许 JavaScript；剪贴板需要 HTTPS 或 localhost。移动端的软键盘与输入法仍需以实际设备表现为准。
+
+完整 Shoka 示例随编辑器放在 `src/features/editor/shoka-example.md`，不依赖博客内容目录；删掉主题的示例博文后，写作室及其示例仍可构建和使用。

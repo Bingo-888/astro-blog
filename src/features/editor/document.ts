@@ -6,7 +6,7 @@ export interface EditorDocument {
   error?: string;
 }
 
-const frontmatterPattern = /^(?:\uFEFF)?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+const frontmatterPattern = /^(?:\uFEFF)?---\r?\n((?:[\s\S]*?\r?\n)?)---(?:\r?\n|$)/;
 
 export function parseEditorDocument(source: string): EditorDocument {
   const match = frontmatterPattern.exec(source);
@@ -29,9 +29,9 @@ export function updateEditorProperty(source: string, key: string, value: unknown
   if (value === undefined || value === '') document.delete(key);
   else document.set(key, value);
   const newline = match?.[0].includes('\r\n') ? '\r\n' : '\n';
-  const yaml = document.toString().trimEnd().replace(/\r?\n/g, newline);
+  const yaml = document.toString().replace(/\r?\n/g, newline);
   const bom = source.startsWith('\uFEFF') ? '\uFEFF' : '';
-  return `${bom}---${newline}${yaml}${newline}---${newline}${match ? source.slice(match[0].length) : source.replace(/^\uFEFF/, '')}`;
+  return `${bom}---${newline}${yaml}${yaml.endsWith(newline) ? '' : newline}---${newline}${match ? source.slice(match[0].length) : source.replace(/^\uFEFF/, '')}`;
 }
 
 export function documentTitle(source: string): string {

@@ -245,15 +245,17 @@
   background: hsl(var(--border) / 0.3);
   cursor: col-resize;
 }
-.editor-resizer:hover {
-  background: hsl(var(--primary) / 0.3);
+.editor-resizer:hover,
+.editor-resizer:focus-within {
+  background: hsl(var(--primary) / 0.5);
 }
 .editor-resizer input {
   width: 100%;
   height: 100%;
   margin: 0;
-  opacity: 0.1;
-  writing-mode: vertical-lr;
+  opacity: 0;
+  cursor: col-resize;
+  touch-action: none;
 }
 .editor-preview-frame {
   position: relative;
