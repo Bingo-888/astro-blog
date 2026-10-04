@@ -327,6 +327,7 @@ export const uiStrings = {
   'series.latestPost': '最新文章',
   'series.viewAll': '查看全部',
   'series.postCount': '{count} 篇',
+  'series.position': '第 {current} / {total} 篇',
   'series.noPosts': '暂无系列文章',
   'series.rss': 'RSS 订阅',
   'series.chromeExtension': 'Chrome 插件',

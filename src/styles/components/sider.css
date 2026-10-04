@@ -464,19 +464,17 @@ html:is([data-motion="reduced"], .motion-off) :is(.home-nav-collapse, .home-nav-
   transition: none;
 }
 
-/* ── Series prev / next (SeriesNavigation.tsx) ───────────── */
+/* ── Series progress (SeriesProgress.astro) ──────────────── */
 
-/* A page-turn footer: two full-width rows under a fading silk thread, so titles keep the column's width. */
-.series-nav {
+/* The sider's footer: where this post sits in its series, as beads on the same silk thread. */
+.series-progress {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
+  flex-shrink: 0;
   margin-top: 0.5rem;
-  padding-top: 0.75rem;
+  padding-top: 0.875rem;
 }
 
-.series-nav::before {
+.series-progress::before {
   content: "";
   position: absolute;
   top: 0;
@@ -485,9 +483,50 @@ html:is([data-motion="reduced"], .motion-off) :is(.home-nav-collapse, .home-nav-
   background: linear-gradient(to right, transparent, hsl(var(--primary) / 0.2) 20%, hsl(var(--primary) / 0.2) 80%, transparent);
 }
 
-.series-nav-link,
-.series-nav-action {
+.series-progress-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-inline: 0.375rem;
+}
+
+.series-progress-name {
+  min-width: 0;
+  overflow: hidden;
+  color: hsl(var(--foreground) / 0.78);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.series-progress-count {
+  flex-shrink: 0;
   color: hsl(var(--muted-foreground));
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.series-progress-track {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.375rem;
+}
+
+.series-progress-arrow {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  color: hsl(var(--primary) / 0.75);
+  font-size: 1.125rem;
   -webkit-tap-highlight-color: transparent;
   transition:
     background-color 200ms var(--ease-out-quart),
@@ -495,104 +534,197 @@ html:is([data-motion="reduced"], .motion-off) :is(.home-nav-collapse, .home-nav-
     scale 200ms var(--ease-out-quart);
 }
 
-.series-nav-link {
+span.series-progress-arrow {
+  color: hsl(var(--muted-foreground) / 0.35);
+}
+
+.series-progress-beads {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* The thread runs bead to bead; a clipped end fades out to say the series continues past the window. */
+.series-progress-beads::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline: 0.625rem;
+  height: 1.5px;
+  background: hsl(var(--primary) / 0.22);
+  translate: 0 -50%;
+}
+
+.series-progress-beads[data-clipped-start]::before {
+  left: 0;
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem);
+}
+
+.series-progress-beads[data-clipped-end]::before {
+  right: 0;
+  mask-image: linear-gradient(to left, transparent, #000 1.5rem);
+}
+
+.series-progress-beads[data-clipped-start][data-clipped-end]::before {
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
+}
+
+.series-progress-beads > li {
+  position: relative;
+  display: flex;
+}
+
+.series-progress-bead {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-  padding: 0.4375rem 0.625rem 0.4375rem 0.375rem;
-  border-radius: 0.75rem;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.series-nav-icon {
-  width: 1.125rem;
-  height: 1.125rem;
-  flex-shrink: 0;
-  color: hsl(var(--primary) / 0.6);
+.series-progress-bead::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--sider-surface);
+  box-shadow: inset 0 0 0 1.5px hsl(var(--primary) / 0.45);
   transition:
-    color 200ms var(--ease-out-quart),
-    translate 320ms var(--ease-out-expo);
+    scale 260ms var(--ease-out-expo),
+    box-shadow 200ms var(--ease-out-quart);
 }
 
-.series-nav-text {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
+.series-progress-bead[data-read]::before {
+  background: hsl(var(--primary) / 0.4);
+  box-shadow: none;
 }
 
-.series-nav-label {
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
-  line-height: 1.4;
+.series-progress-bead[aria-current="page"]::before {
+  width: 0.625rem;
+  height: 0.625rem;
+  background: hsl(var(--primary));
+  box-shadow:
+    0 0 0 3px var(--sider-surface),
+    0 0 0 4.5px hsl(var(--primary) / 0.3);
 }
 
-.series-nav-title {
+/* Title bubble from data-title: centred on a bead, anchored inward near either end so it stays on screen. */
+.series-progress [data-title]::after {
+  content: attr(data-title);
+  position: absolute;
+  bottom: calc(100% + 0.375rem);
+  left: 50%;
+  z-index: 2;
+  max-width: 13rem;
   overflow: hidden;
-  color: hsl(var(--foreground) / 0.8);
-  font-size: 0.8125rem;
-  line-height: 1.5;
+  padding: 0.3125rem 0.625rem;
+  border-radius: 0.625rem;
+  background-image: var(--gradient-shoka-button);
+  box-shadow: 0 0.5rem 1rem -0.5rem rgb(233 84 107 / 0.7);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: color 200ms var(--ease-out-quart);
+  opacity: 0;
+  translate: -50% 0.25rem;
+  pointer-events: none;
+  transition:
+    opacity 140ms var(--ease-in-quart),
+    translate 160ms var(--ease-in-quart);
 }
 
-.series-nav-actions {
-  display: none;
+.series-progress-track > a:first-child::after,
+.series-progress-beads > li:nth-child(-n + 3) [data-title]::after {
+  left: 0;
+  translate: 0 0.25rem;
 }
 
-.drawer-sider .series-nav-actions {
+.series-progress-track > a:last-child::after,
+.series-progress-beads > li:nth-last-child(-n + 3):not(:nth-child(-n + 3)) [data-title]::after {
+  right: 0;
+  left: auto;
+  translate: 0 0.25rem;
+}
+
+@media (hover: hover) {
+  .series-progress-arrow:is(a):hover {
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+  }
+
+  .series-progress-bead:not([aria-current]):hover::before {
+    scale: 1.4;
+    box-shadow: inset 0 0 0 1.5px hsl(var(--primary));
+  }
+
+  .series-progress [data-title]:hover::after {
+    opacity: 1;
+    translate: -50% 0;
+    transition:
+      opacity 200ms var(--ease-out-quart) 80ms,
+      translate 360ms var(--ease-out-expo) 80ms;
+  }
+
+  .series-progress-track > a:first-child:hover::after,
+  .series-progress-track > a:last-child:hover::after,
+  .series-progress-beads > li:nth-child(-n + 3) [data-title]:hover::after,
+  .series-progress-beads > li:nth-last-child(-n + 3) [data-title]:hover::after {
+    translate: 0 0;
+  }
+}
+
+.series-progress-arrow:is(a):active {
+  scale: 0.9;
+  transition-duration: 80ms;
+}
+
+:is(.series-progress-arrow, .series-progress-bead, .series-progress-action):focus-visible {
+  outline-offset: -2px;
+}
+
+/* Drawer: thumb-sized arrows, plus the scroll actions the hidden floating group would offer. */
+.drawer-sider .series-progress-arrow {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.drawer-sider .series-progress-bead {
+  width: 1.5rem;
+  height: 2.75rem;
+}
+
+.series-progress-actions {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 0.25rem;
   margin-top: 0.25rem;
 }
 
-.series-nav-action {
+.series-progress-action {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
   min-height: 2.75rem;
   border-radius: 0.75rem;
+  color: hsl(var(--muted-foreground));
   font-size: 0.75rem;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 200ms var(--ease-out-quart),
+    scale 200ms var(--ease-out-quart);
 }
 
-.drawer-sider .series-nav-link {
-  min-height: 3rem;
-}
-
-@media (hover: hover) {
-  .series-nav-link:hover {
-    background: hsl(var(--foreground) / 0.04);
-  }
-
-  .series-nav-link:hover .series-nav-title,
-  .series-nav-link:hover .series-nav-icon {
-    color: hsl(var(--primary));
-  }
-
-  /* The arrow nudges toward where the link goes. */
-  .series-nav-link[data-dir="prev"]:hover .series-nav-icon {
-    translate: -2px 0;
-  }
-
-  .series-nav-link[data-dir="next"]:hover .series-nav-icon {
-    translate: 2px 0;
-  }
-
-  .series-nav-action:hover {
-    background: hsl(var(--foreground) / 0.05);
-    color: hsl(var(--primary));
-  }
-}
-
-:is(.series-nav-link, .series-nav-action):active {
-  scale: 0.98;
+.series-progress-action:active {
+  scale: 0.97;
+  background: hsl(var(--foreground) / 0.06);
   transition-duration: 80ms;
-}
-
-:is(.series-nav-link, .series-nav-action):focus-visible {
-  outline-offset: -2px;
 }
 
 /* ── Series posts (SeriesPostList.tsx): one thread, a bead per post ── */

@@ -329,6 +329,7 @@ export const uiStrings: UIStrings = {
   'series.latestPost': 'Latest',
   'series.viewAll': 'View all',
   'series.postCount': '{count} posts',
+  'series.position': '{current} of {total}',
   'series.noPosts': 'No posts in this series',
   'series.rss': 'RSS Feed',
   'series.chromeExtension': 'Chrome Extension',

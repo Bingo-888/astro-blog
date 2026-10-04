@@ -1,0 +1,105 @@
+---
+/**
+ * SeriesProgress - 侧栏底部的系列进度条：系列名、第几篇、一串可点的珠子与前后翻页按钮。
+ * 纯静态渲染；标题气泡用 CSS 的 attr(data-title) 绘制，不需要脚本。
+ */
+import { Routes } from '@constants/router';
+import { routeBuilder } from '@lib/route';
+import { Icon } from 'astro-icon/components';
+import { type Locale, localizedPath, t } from '@/i18n';
+import type { PostRef } from '@/types/blog';
+
+interface Props {
+  posts: PostRef[];
+  currentSlug: string;
+  seriesName: string;
+  locale: Locale;
+  /** The drawer adds back-to-top / scroll-to-bottom, which the hidden floating group provides elsewhere. */
+  withScrollActions?: boolean;
+}
+
+/** At most this many beads; longer series show a window around the current post with faded ends. */
+const MAX_BEADS = 9;
+
+const { posts, currentSlug, seriesName, locale, withScrollActions = false } = Astro.props;
+const current = posts.findIndex((post) => post.slug === currentSlug);
+const prev = current > 0 ? posts[current - 1] : null;
+const next = current >= 0 && current < posts.length - 1 ? posts[current + 1] : null;
+
+const windowStart = Math.max(0, Math.min(current - Math.floor(MAX_BEADS / 2), posts.length - MAX_BEADS));
+const beads = posts.slice(windowStart, windowStart + MAX_BEADS).map((post, offset) => ({
+  post,
+  index: windowStart + offset,
+}));
+const clippedStart = windowStart > 0;
+const clippedEnd = windowStart + MAX_BEADS < posts.length;
+const href = (post: PostRef) => localizedPath(routeBuilder(Routes.Post, post), locale);
+---
+
+{
+  current >= 0 && posts.length > 1 && (
+    <nav class="series-progress" aria-label={seriesName}>
+      <div class="series-progress-meta">
+        <span class="series-progress-name">{seriesName}</span>
+        <span class="series-progress-count">{t(locale, 'series.position', { current: current + 1, total: posts.length })}</span>
+      </div>
+      <div class="series-progress-track">
+        {prev ? (
+          <a href={href(prev)} class="series-progress-arrow" data-title={prev.title} aria-label={`${t(locale, 'post.prevPost')}: ${prev.title}`}>
+            <Icon name="ri:arrow-left-s-line" />
+          </a>
+        ) : (
+          <span class="series-progress-arrow" aria-hidden="true">
+            <Icon name="ri:arrow-left-s-line" />
+          </span>
+        )}
+        <ol class="series-progress-beads" data-clipped-start={clippedStart || undefined} data-clipped-end={clippedEnd || undefined}>
+          {beads.map(({ post, index }) => (
+            <li>
+              <a
+                href={href(post)}
+                class="series-progress-bead"
+                data-title={post.title}
+                data-read={index < current || undefined}
+                aria-current={index === current ? 'page' : undefined}
+                aria-label={post.title}
+              />
+            </li>
+          ))}
+        </ol>
+        {next ? (
+          <a href={href(next)} class="series-progress-arrow" data-title={next.title} aria-label={`${t(locale, 'post.nextPost')}: ${next.title}`}>
+            <Icon name="ri:arrow-right-s-line" />
+          </a>
+        ) : (
+          <span class="series-progress-arrow" aria-hidden="true">
+            <Icon name="ri:arrow-right-s-line" />
+          </span>
+        )}
+      </div>
+      {withScrollActions && (
+        <div class="series-progress-actions">
+          <button type="button" class="series-progress-action" data-scroll-to="top">
+            <Icon name="ri:arrow-up-s-line" class="size-4" />
+            {t(locale, 'floating.backToTop')}
+          </button>
+          <button type="button" class="series-progress-action" data-scroll-to="bottom">
+            <Icon name="ri:arrow-down-s-line" class="size-4" />
+            {t(locale, 'floating.scrollToBottom')}
+          </button>
+        </div>
+      )}
+    </nav>
+  )
+}
+
+<script>
+  import { getScrollBehavior } from '@lib/motion-level';
+
+  document.addEventListener('click', (event) => {
+    const button = (event.target as Element | null)?.closest?.<HTMLElement>('[data-scroll-to]');
+    if (!button) return;
+    const top = button.dataset.scrollTo === 'bottom' ? document.documentElement.scrollHeight : 0;
+    window.scrollTo({ top, behavior: getScrollBehavior() });
+  });
+</script>

@@ -328,6 +328,7 @@ export const uiStrings = {
   'series.latestPost': '최신 게시물',
   'series.viewAll': '모두 보기',
   'series.postCount': '{count}개',
+  'series.position': '{total}편 중 {current}번째',
   'series.noPosts': '등록된 시리즈 게시물이 없어요',
   'series.rss': 'RSS 구독',
   'series.chromeExtension': 'Chrome 확장 프로그램',

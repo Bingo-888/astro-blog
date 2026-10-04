@@ -1,11 +1,12 @@
 ---
-import { SeriesNavigation } from '@components/post/SeriesNavigation';
 import { SeriesPostList } from '@components/post/SeriesPostList';
+import SeriesProgress from '@components/post/SeriesProgress.astro';
 import HomeSiderSegmented from '@components/ui/segmented/HomeSiderSegmented';
 import { HomeSiderSegmentType, HomeSiderType } from '@constants/enum';
+import { translateCategoryName } from '@lib/content';
 import { getPostSlug } from '@lib/content/locale';
-import { getAdjacentSeriesPosts, getSeriesPosts } from '@lib/content/posts';
-import { toPostRef, toPostRefs } from '@lib/content/transforms';
+import { getPostLastCategory, getSeriesPosts } from '@lib/content/posts';
+import { toPostRefs } from '@lib/content/transforms';
 import { cn } from '@lib/utils';
 import type { BlogPost } from 'types/blog';
 import { getLocaleFromUrl } from '@/i18n';
@@ -26,11 +27,8 @@ const defaultSegmentType = type === HomeSiderType.POST ? HomeSiderSegmentType.DI
 // 获取系列文章（转换为轻量级引用）
 const seriesPosts = post && type === HomeSiderType.POST ? toPostRefs(await getSeriesPosts(post, locale)) : [];
 
-// 获取上一篇和下一篇（转换为轻量级引用）
-const adjacentPosts =
-  post && type === HomeSiderType.POST ? await getAdjacentSeriesPosts(post, locale) : { prevPost: null, nextPost: null };
-const prevPost = adjacentPosts.prevPost ? toPostRef(adjacentPosts.prevPost) : null;
-const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : null;
+const currentSlug = post ? getPostSlug(post) : '';
+const seriesName = post && type === HomeSiderType.POST ? translateCategoryName(getPostLastCategory(post).name, locale) : '';
 ---
 
 <div
@@ -69,7 +67,7 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
       {type === HomeSiderType.POST && <TableOfContents client:only="react" isDrawer={isDrawer} enableNumbering={post?.data.tocNumbering ?? true} />}
     </div>
     <div slot="series" class="sider-slot" data-slot-type="series">
-      {type === HomeSiderType.POST && <SeriesPostList client:idle posts={seriesPosts} currentPostSlug={post ? getPostSlug(post) : undefined} locale={locale} />}
+      {type === HomeSiderType.POST && <SeriesPostList client:idle posts={seriesPosts} currentPostSlug={currentSlug || undefined} locale={locale} />}
     </div>
   </sider-content>
 
@@ -93,7 +91,7 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
 
   {
     type === HomeSiderType.POST && (
-      <SeriesNavigation client:load prevPost={prevPost} nextPost={nextPost} className="shrink-0" locale={locale} />
+      <SeriesProgress posts={seriesPosts} currentSlug={currentSlug} seriesName={seriesName} locale={locale} withScrollActions={isDrawer} />
     )
   }
 </div>
