@@ -1,7 +1,7 @@
 ---
 /**
- * SeriesProgress - 侧栏底部的系列进度「花信」：一根丝线上串着每篇一片樱花瓣，读过的染粉，当前篇是带光晕的整瓣。
- * 悬停时花瓣像被风拂过一样随指针泛起、扬起；上方信息行就地换成目标文章的标题；触屏可沿丝线拖动预览、松手跳转。
+ * SeriesProgress - 侧栏底部的系列进度：铺满宽度的分段条，每篇一段，读过的染粉，当前段上立着一片花瓣标记。
+ * 悬停时附近的段随指针微微隆起，上方信息行就地换成目标文章的标题；触屏可沿进度条拖动预览、松手跳转。
  */
 import { Routes } from '@constants/router';
 import { routeBuilder } from '@lib/route';
@@ -22,8 +22,8 @@ interface Props {
 
 /** Ticks shown at most; a longer series shows a window around the current post with faded ends. */
 const MAX_TICKS = 40;
-/** Past this many, petals no longer fit side by side and stand upright as slender slivers. */
-const DENSE_TICKS = 16;
+/** Gaps between segments narrow as the series grows, so a long one still reads as one bar. */
+const segmentGap = (count: number) => (count <= 10 ? 4 : count <= 20 ? 3 : count <= 30 ? 2 : 1);
 
 const { posts, currentSlug, seriesName, locale, withScrollActions = false } = Astro.props;
 const current = posts.findIndex((post) => post.slug === currentSlug);
@@ -69,10 +69,9 @@ const position = (index: number) => `${index + 1} / ${total}`;
         )}
         <ol
           class="series-progress-rail"
-          style={`--tick-count: ${ticks.length}`}
+          style={`--tick-count: ${ticks.length}; --tick-gap: ${segmentGap(ticks.length)}px`}
           data-clipped-start={start > 0 || undefined}
           data-clipped-end={start + ticks.length < total || undefined}
-          data-dense={ticks.length > DENSE_TICKS || undefined}
         >
           {ticks.map(({ post, index }) => (
             <li>
