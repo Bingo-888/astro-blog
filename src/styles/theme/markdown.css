@@ -382,16 +382,14 @@
   pre {
     position: relative;
     border-radius: 0 0 0.75rem 0.75rem;
-    border: 1px solid hsl(var(--border));
+    border: 1px solid var(--code-border);
     /* 重置 Typography 默认 padding */
     padding: 0;
     padding-inline-end: 0;
     overflow: hidden;
     margin: 0;
-    /* 覆盖 Typography 背景色 */
-    background-color: hsl(var(--card));
-    /* 阴影 */
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    /* biome-ignore lint/complexity/noImportantStyles: Shiki writes its theme background inline on every block. */
+    background-color: var(--code-surface) !important;
   }
 
   pre code {
@@ -401,6 +399,7 @@
     /* The parent pre already carries Typography's relative code scale. */
     font-size: inherit;
     line-height: 1.7;
+    tab-size: 2;
     /* 覆盖 Typography 默认值 */
     background-color: transparent;
     color: inherit;
@@ -418,15 +417,19 @@
     min-height: 0;
   }
 
-  /* Keep an eight-line preview so collapsed blocks still reveal useful context. */
-  .code-block-wrapper.code-collapsed > pre {
-    border-top-width: 0;
+  /* Expanding glides to the full height where interpolate-size is supported; elsewhere it snaps open. */
+  .code-block-wrapper.code-collapsible > pre > code {
+    interpolate-size: allow-keywords;
+    transition: height 0.42s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  /* Keep an eight-line preview so collapsed blocks still reveal useful context. */
   .code-block-wrapper.code-collapsed > pre > code {
-    max-height: calc(13.6em + 2rem);
+    height: calc(13.6em + 2rem);
     overflow-x: auto;
     overflow-y: hidden;
+    /* Fade the tail out instead of laying a card-colored gradient over it. */
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 4.5rem), transparent calc(100% - 0.5rem));
   }
 
   /* Reserve the toolbar row before the idle-hydrated controls mount. */
@@ -436,11 +439,10 @@
 
   /* Toolbar-shaped skeleton until hydration fills the mount (mirrors MacToolbar chrome). */
   .code-block-wrapper.code-collapsed > .code-block-wrapper-toolbar-mount:empty {
-    border: 1px solid hsl(var(--border));
+    border: 1px solid var(--code-border);
     border-bottom: 0;
     border-radius: 0.75rem 0.75rem 0 0;
-    background-color: hsl(var(--muted) / 0.5);
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    background-color: var(--code-toolbar);
   }
 
   /* Make the full toolbar a collapse toggle. */
@@ -461,29 +463,36 @@
     justify-content: center;
     border: 0;
     border-radius: 0 0 0.75rem 0.75rem;
-    padding-bottom: 0.5rem;
-    background: linear-gradient(to bottom, transparent, hsl(var(--card) / 0.9) 60%, hsl(var(--card)));
+    padding-bottom: 0.625rem;
+    background: transparent;
     color: hsl(var(--muted-foreground));
   }
 
   .code-block-expand-overlay-icon {
     display: flex;
-    width: 1.75rem;
-    height: 1.75rem;
     align-items: center;
-    justify-content: center;
-    border: 1px solid hsl(var(--border));
+    gap: 0.25rem;
+    border: 1px solid var(--code-border);
     border-radius: 9999px;
-    background-color: hsl(var(--card) / 0.85);
-    box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+    padding: 0.25rem 0.75rem 0.25rem 0.5rem;
+    background-color: var(--code-toolbar);
+    box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.18);
+    font-size: 0.75rem;
+    line-height: 1.25rem;
     transition:
       color 0.2s ease,
-      transform 0.2s ease;
+      border-color 0.2s ease,
+      transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .code-block-expand-overlay:hover .code-block-expand-overlay-icon {
+    border-color: hsl(var(--primary) / 0.45);
     color: hsl(var(--primary));
-    transform: translateY(0.125rem);
+    transform: translateY(-0.125rem);
+  }
+
+  .code-block-expand-overlay:active .code-block-expand-overlay-icon {
+    transform: translateY(0) scale(0.96);
   }
 
   .code-block-expand-overlay:focus-visible {
@@ -506,9 +515,47 @@
 
 /* ========== Code/Mermaid/Infographic wrapper layout ========== */
 
+:root {
+  /* One window surface for code, mermaid and infographic blocks: toolbar and body read as one piece. */
+  --code-surface: color-mix(in oklab, hsl(var(--card)) 97%, hsl(var(--primary)));
+  --code-toolbar: color-mix(in oklab, var(--code-surface) 96%, hsl(var(--foreground)));
+  --code-border: hsl(var(--border) / 0.8);
+}
+
+.dark {
+  --code-surface: color-mix(in oklab, hsl(var(--card)) 80%, #000);
+  --code-toolbar: color-mix(in oklab, hsl(var(--card)) 94%, hsl(var(--foreground)));
+  --code-border: hsl(var(--border) / 0.9);
+}
+
 .code-block-wrapper {
   position: relative;
   margin-bottom: 1.25rem;
+}
+
+/* The window casts one shadow; the toolbar and body inside it stay flat so no seam shows between them. */
+:is(.code-block-wrapper, .mermaid-wrapper, .infographic-wrapper) {
+  border-radius: 0.75rem;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 10px 24px -14px rgb(0 0 0 / 0.22);
+}
+
+.dark :is(.code-block-wrapper, .mermaid-wrapper, .infographic-wrapper) {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.2),
+    0 12px 28px -14px rgb(0 0 0 / 0.55);
+}
+
+/* Traffic lights rest as gray dots, like an unfocused macOS window, and light up with the block. */
+.traffic-lights > * {
+  transition: background-color 0.25s ease;
+}
+
+@media (hover: hover) {
+  :is(.code-block-wrapper, .mermaid-wrapper, .infographic-wrapper):not(:hover, :focus-within) .traffic-lights > * {
+    background-color: hsl(var(--foreground) / 0.14);
+  }
 }
 
 /* 如果第一个子节点就是标题 */
@@ -692,12 +739,6 @@
 
 /* ========== 深色模式样式 ========== */
 
-/* Night-sakura code surface instead of github-dark's cool grey (beats Shiki's inline variable). */
-html.dark :is(.prose .astro-code, .code-fullscreen-content) {
-  /* biome-ignore lint/complexity/noImportantStyles: overrides the inline --shiki-dark-bg Shiki writes on each <pre>. */
-  --shiki-dark-bg: hsl(256 24% 10%) !important;
-}
-
 /* 深色模式 - 行内代码 */
 .dark .prose :not(pre) > code {
   background: hsl(var(--background) / 0.8);
@@ -723,13 +764,11 @@ html.dark :is(.prose .astro-code, .code-fullscreen-content) {
 /* Mermaid pre styling when in wrapper; the bottom padding holds the resize grip */
 .mermaid-wrapper > pre.mermaid {
   border-radius: 0 0 0.75rem 0.75rem;
-  border: 1px solid hsl(var(--border));
-  border-top: none;
+  border: 1px solid var(--code-border);
   padding: 1rem 1rem 1.5rem;
   margin: 0;
   overflow: hidden;
-  background-color: hsl(var(--card));
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  background-color: var(--code-surface);
 }
 
 /* Once useDiagramScale sizes it, the same canvas as infographics: centered, scrolling sideways when zoomed past the column.
@@ -773,12 +812,10 @@ html.dark :is(.prose .astro-code, .code-fullscreen-content) {
 /* Infographic container */
 .infographic-container {
   border-radius: 0 0 0.75rem 0.75rem;
-  border: 1px solid hsl(var(--border));
-  border-top: none;
+  border: 1px solid var(--code-border);
   margin: 0;
   overflow: auto;
-  background-color: hsl(var(--card));
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  background-color: var(--code-surface);
   min-height: 200px;
   min-width: min(920px, 100%);
 }
@@ -887,8 +924,8 @@ html.dark :is(.prose .astro-code, .code-fullscreen-content) {
   font-size: 0.8em;
   font-weight: 500;
   color: hsl(var(--muted-foreground));
-  border-bottom: 1px solid hsl(var(--border));
-  background: hsl(var(--muted) / 0.3);
+  /* The code body's top border closes the toolbar, so the title only needs a quiet divider above it. */
+  border-top: 1px dashed var(--code-border);
 }
 
 .code-block-title a {
@@ -921,6 +958,8 @@ html.dark :is(.prose .astro-code, .code-fullscreen-content) {
 /* The portal lives outside .prose. Keep one scroll surface for both code axes. */
 .code-fullscreen-content {
   --code-gutter: 1.25rem;
+  /* biome-ignore lint/complexity/noImportantStyles: same surface as the in-article window; Shiki writes its theme background inline. */
+  background-color: var(--code-surface) !important;
   flex: 1;
   min-height: 0;
   min-width: 0;

@@ -28,6 +28,7 @@ import { normalizeEditorConfig } from './src/lib/config/editor.ts';
 import { enabledFeaturedSeriesSlugs, normalizeFeaturedSeries } from './src/lib/config/featured-series.ts';
 import { normalizeMomentsConfig } from './src/lib/config/moments.ts';
 import { RESERVED_ROUTES } from './src/lib/config/reserved-routes.ts';
+import { mermaidThemeCSS } from './src/lib/markdown/mermaid-theme.ts';
 import { rehypeEncryptedBlock } from './src/lib/markdown/rehype-encrypted-block.ts';
 import { rehypeEncryptedPost } from './src/lib/markdown/rehype-encrypted-post.ts';
 import { rehypeImagePlaceholder } from './src/lib/markdown/rehype-image-placeholder.ts';
@@ -235,8 +236,8 @@ export default defineConfig({
     },
     shikiConfig: {
       themes: {
-        light: 'github-light',
-        dark: 'github-dark',
+        light: 'catppuccin-latte',
+        dark: 'catppuccin-mocha',
       },
       transformers: shikiTransformers,
     },
@@ -256,6 +257,7 @@ export default defineConfig({
     pagefind(),
     mermaid({
       autoTheme: true,
+      mermaidConfig: { themeCSS: mermaidThemeCSS },
     }),
     robotsTxt(robotsConfig || {}),
     ...(momentsConfig.enabled ? [momentsRoutes(momentsConfig)] : []),

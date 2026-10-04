@@ -134,6 +134,7 @@ export const uiStrings: UIStrings = {
   'diagram.zoomOut': '縮小',
   'diagram.resetZoom': 'リセット',
   'diagram.fitToScreen': '画面に合わせる',
+  'diagram.actualSize': '実際のサイズ',
   'diagram.download': '画像をダウンロード',
   'diagram.resize': '図のサイズを変更',
   'diagram.resizeHint': 'ドラッグでサイズ変更、ダブルクリックで元に戻す',
@@ -142,6 +143,7 @@ export const uiStrings: UIStrings = {
   'diagram.errorHelp': 'ページを再読み込みするか、ツールバーから図のソースを表示・コピーできます。',
   'diagram.errorHelpNoSource': 'ページを再読み込みしてお試しください。',
   'diagram.reload': '再読み込み',
+  'diagram.gestureHint': 'ピンチ/ホイールで拡大縮小・ドラッグで移動・ダブルクリックで拡大',
 
   // ── Lightboxでの画像表示 ──────────────────────────────────────────
   'image.preview': '画像プレビュー',

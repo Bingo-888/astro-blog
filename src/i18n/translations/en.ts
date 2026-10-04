@@ -134,6 +134,7 @@ export const uiStrings: UIStrings = {
   'diagram.zoomOut': 'Zoom out',
   'diagram.resetZoom': 'Reset zoom',
   'diagram.fitToScreen': 'Fit to screen',
+  'diagram.actualSize': 'Actual size',
   'diagram.download': 'Download image',
   'diagram.resize': 'Resize diagram',
   'diagram.resizeHint': 'Drag to resize, double-click to reset',
@@ -142,6 +143,7 @@ export const uiStrings: UIStrings = {
   'diagram.errorHelp': 'Reload to try again, or use the toolbar to view and copy the diagram source.',
   'diagram.errorHelpNoSource': 'Reload the page to try again.',
   'diagram.reload': 'Reload',
+  'diagram.gestureHint': 'Pinch or scroll wheel to zoom · Drag to pan · Double-click to zoom in',
 
   // ── Image Lightbox ──────────────────────────────────────────
   'image.preview': 'Image preview',

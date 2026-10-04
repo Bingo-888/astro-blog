@@ -114,7 +114,8 @@ export function CodeBlockToolbar({ preElement, enableCopy = true, enableFullscre
           title={t('code.expand')}
         >
           <span className="code-block-expand-overlay-icon">
-            <Icon icon="ri:arrow-down-s-line" className="size-5" />
+            <Icon icon="ri:arrow-down-s-line" className="size-4" />
+            {t('code.expand')}
           </span>
         </button>
       )}
