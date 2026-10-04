@@ -46,7 +46,7 @@
     "test:settings-panel": "node tests/settings/panel-animation.mjs",
     "test:bgm-panel": "node tests/bgm/panel-loading.mjs",
     "test:glide": "tsx --test src/lib/glide.test.ts",
-    "test:drawer": "tsx --test src/lib/drawer-gesture.test.ts",
+    "test:drawer": "tsx --test src/lib/drawer-gesture.test.ts src/lib/series-rail.test.ts",
     "test:diagram": "tsx --test src/lib/diagram-sizing.test.ts src/lib/mermaid-source.test.ts src/lib/zoom-pan.test.ts",
     "test:diagram:browser": "node tests/diagram/mermaid.browser.mjs",
     "test:migrate": "tsx --test scripts/koharu/utils/*.test.ts",

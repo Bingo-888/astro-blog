@@ -466,7 +466,11 @@ html:is([data-motion="reduced"], .motion-off) :is(.home-nav-collapse, .home-nav-
 
 /* ── Series progress (SeriesProgress.astro) ──────────────── */
 
-/* The sider's footer: where this post sits in its series, as beads on the same silk thread. */
+/*
+  The sider's footer: one tick per post on the silk thread, a haloed bead for this post. Under the
+  pointer the ticks swell in a wave (--wave, written per tick by the script), and the meta line
+  above trades the series name for the targeted post's title in place, so nothing covers the panel.
+*/
 .series-progress {
   position: relative;
   flex-shrink: 0;
@@ -484,218 +488,225 @@ html:is([data-motion="reduced"], .motion-off) :is(.home-nav-collapse, .home-nav-
 }
 
 .series-progress-meta {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
+  display: grid;
   padding-inline: 0.375rem;
 }
 
-.series-progress-name {
+.series-progress-default,
+.series-progress-preview {
+  display: flex;
+  grid-area: 1 / 1;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.5rem;
+  transition:
+    opacity 160ms var(--ease-out-quart),
+    translate 240ms var(--ease-out-quart);
+}
+
+.series-progress-default {
+  justify-content: space-between;
+}
+
+.series-progress-preview {
+  opacity: 0;
+  translate: 0 0.25rem;
+  pointer-events: none;
+}
+
+.series-progress[data-previewing] .series-progress-default {
+  opacity: 0;
+  translate: 0 -0.25rem;
+}
+
+.series-progress[data-previewing] .series-progress-preview {
+  opacity: 1;
+  translate: none;
+}
+
+.series-progress-name,
+.series-progress-preview-title {
   min-width: 0;
   overflow: hidden;
-  color: hsl(var(--foreground) / 0.78);
   font-size: 0.8125rem;
-  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.series-progress-count {
+.series-progress-name {
+  color: hsl(var(--foreground) / 0.78);
+  font-weight: 500;
+}
+
+.series-progress-preview-title {
+  color: hsl(var(--foreground) / 0.88);
+}
+
+.series-progress-count,
+.series-progress-preview-label {
   flex-shrink: 0;
-  color: hsl(var(--muted-foreground));
   font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
 }
 
+.series-progress-count {
+  color: hsl(var(--muted-foreground));
+}
+
+.series-progress-preview-label {
+  color: hsl(var(--primary));
+}
+
 .series-progress-track {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-top: 0.375rem;
+  gap: 0.125rem;
+  margin-top: 0.25rem;
 }
 
 .series-progress-arrow {
-  position: relative;
   display: flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 9999px;
-  color: hsl(var(--primary) / 0.75);
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  color: hsl(var(--primary) / 0.7);
   font-size: 1.125rem;
   -webkit-tap-highlight-color: transparent;
   transition:
     background-color 200ms var(--ease-out-quart),
-    color 200ms var(--ease-out-quart),
-    scale 200ms var(--ease-out-quart);
+    color 200ms var(--ease-out-quart);
+}
+
+.series-progress-arrow > svg {
+  transition: translate 320ms var(--ease-out-expo);
 }
 
 span.series-progress-arrow {
-  color: hsl(var(--muted-foreground) / 0.35);
+  color: hsl(var(--muted-foreground) / 0.3);
 }
 
-.series-progress-beads {
+/* Each tick owns an equal slice of the rail at full height, so the pointer always targets the nearest post. */
+.series-progress-rail {
   position: relative;
   display: flex;
   flex: 1;
   min-width: 0;
-  align-items: center;
-  justify-content: space-between;
+  height: 2.25rem;
 }
 
-/* The thread runs bead to bead; a clipped end fades out to say the series continues past the window. */
-.series-progress-beads::before {
+.series-progress-rail::before {
   content: "";
   position: absolute;
   top: 50%;
-  inset-inline: 0.625rem;
-  height: 1.5px;
-  background: hsl(var(--primary) / 0.22);
+  inset-inline: calc(100% / var(--tick-count) / 2);
+  height: 1px;
+  background: hsl(var(--primary) / 0.2);
   translate: 0 -50%;
+  pointer-events: none;
 }
 
-.series-progress-beads[data-clipped-start]::before {
+.series-progress-rail[data-clipped-start]::before {
   left: 0;
   mask-image: linear-gradient(to right, transparent, #000 1.5rem);
 }
 
-.series-progress-beads[data-clipped-end]::before {
+.series-progress-rail[data-clipped-end]::before {
   right: 0;
   mask-image: linear-gradient(to left, transparent, #000 1.5rem);
 }
 
-.series-progress-beads[data-clipped-start][data-clipped-end]::before {
+.series-progress-rail[data-clipped-start][data-clipped-end]::before {
   mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
 }
 
-.series-progress-beads > li {
-  position: relative;
+.series-progress-rail > li {
   display: flex;
+  flex: 1;
+  min-width: 0;
 }
 
-.series-progress-bead {
-  position: relative;
+.series-progress-tick {
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
   -webkit-tap-highlight-color: transparent;
 }
 
-.series-progress-bead::before {
+.series-progress-tick::before {
   content: "";
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 9999px;
-  background: var(--sider-surface);
-  box-shadow: inset 0 0 0 1.5px hsl(var(--primary) / 0.45);
-  transition:
-    scale 260ms var(--ease-out-expo),
-    box-shadow 200ms var(--ease-out-quart);
-}
-
-.series-progress-bead[data-read]::before {
-  background: hsl(var(--primary) / 0.4);
-  box-shadow: none;
-}
-
-.series-progress-bead[aria-current="page"]::before {
-  width: 0.625rem;
+  width: 2px;
   height: 0.625rem;
+  border-radius: 1px;
+  background: hsl(var(--foreground) / 0.2);
+  scale: 1 var(--wave, 1);
+  transition:
+    scale 220ms var(--ease-out-quart),
+    background-color 160ms var(--ease-out-quart);
+}
+
+.series-progress-tick[data-read]::before {
+  background: hsl(var(--primary) / 0.45);
+}
+
+/* This post: a bead on the thread, the "you are here" of the ruler. */
+.series-progress-tick[aria-current="page"]::before {
+  width: 0.5625rem;
+  height: 0.5625rem;
+  border-radius: 9999px;
   background: hsl(var(--primary));
   box-shadow:
     0 0 0 3px var(--sider-surface),
     0 0 0 4.5px hsl(var(--primary) / 0.3);
+  scale: calc(1 + (var(--wave, 1) - 1) * 0.25);
 }
 
-/* Title bubble from data-title: centred on a bead, anchored inward near either end so it stays on screen. */
-.series-progress [data-title]::after {
-  content: attr(data-title);
-  position: absolute;
-  bottom: calc(100% + 0.375rem);
-  left: 50%;
-  z-index: 2;
-  max-width: 13rem;
-  overflow: hidden;
-  padding: 0.3125rem 0.625rem;
-  border-radius: 0.625rem;
-  background-image: var(--gradient-shoka-button);
-  box-shadow: 0 0.5rem 1rem -0.5rem rgb(233 84 107 / 0.7);
-  color: #fff;
-  font-size: 0.75rem;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: 0;
-  translate: -50% 0.25rem;
-  pointer-events: none;
-  transition:
-    opacity 140ms var(--ease-in-quart),
-    translate 160ms var(--ease-in-quart);
-}
-
-.series-progress-track > a:first-child::after,
-.series-progress-beads > li:nth-child(-n + 3) [data-title]::after {
-  left: 0;
-  translate: 0 0.25rem;
-}
-
-.series-progress-track > a:last-child::after,
-.series-progress-beads > li:nth-last-child(-n + 3):not(:nth-child(-n + 3)) [data-title]::after {
-  right: 0;
-  left: auto;
-  translate: 0 0.25rem;
+.series-progress-tick[data-targeted]:not([aria-current])::before {
+  background: hsl(var(--primary));
 }
 
 @media (hover: hover) {
   .series-progress-arrow:is(a):hover {
-    background: hsl(var(--primary) / 0.1);
+    background: hsl(var(--primary) / 0.08);
     color: hsl(var(--primary));
   }
 
-  .series-progress-bead:not([aria-current]):hover::before {
-    scale: 1.4;
-    box-shadow: inset 0 0 0 1.5px hsl(var(--primary));
+  .series-progress-arrow[data-dir="prev"]:hover > svg {
+    translate: -2px 0;
   }
 
-  .series-progress [data-title]:hover::after {
-    opacity: 1;
-    translate: -50% 0;
-    transition:
-      opacity 200ms var(--ease-out-quart) 80ms,
-      translate 360ms var(--ease-out-expo) 80ms;
-  }
-
-  .series-progress-track > a:first-child:hover::after,
-  .series-progress-track > a:last-child:hover::after,
-  .series-progress-beads > li:nth-child(-n + 3) [data-title]:hover::after,
-  .series-progress-beads > li:nth-last-child(-n + 3) [data-title]:hover::after {
-    translate: 0 0;
+  .series-progress-arrow[data-dir="next"]:hover > svg {
+    translate: 2px 0;
   }
 }
 
 .series-progress-arrow:is(a):active {
-  scale: 0.9;
-  transition-duration: 80ms;
+  background: hsl(var(--primary) / 0.12);
 }
 
-:is(.series-progress-arrow, .series-progress-bead, .series-progress-action):focus-visible {
+:is(.series-progress-arrow, .series-progress-tick, .series-progress-action):focus-visible {
   outline-offset: -2px;
 }
 
-/* Drawer: thumb-sized arrows, plus the scroll actions the hidden floating group would offer. */
+.series-progress-tick:focus-visible {
+  border-radius: 0.375rem;
+}
+
+html:is([data-motion="reduced"], .motion-off) :is(.series-progress-default, .series-progress-preview) {
+  translate: none;
+}
+
+/* Drawer: thumb-sized arrows and a taller rail to scrub along, plus the floating group's scroll actions. */
 .drawer-sider .series-progress-arrow {
   width: 2.75rem;
   height: 2.75rem;
 }
 
-.drawer-sider .series-progress-bead {
-  width: 1.5rem;
+.drawer-sider .series-progress-rail {
   height: 2.75rem;
 }
 

@@ -181,6 +181,8 @@ const locale = getLocaleFromUrl(Astro.url.pathname);
 
     private onPointerDown = (event: PointerEvent) => {
       if (event.pointerType === 'mouse' || this.pointerId !== null || this.drawer.dataset.state !== 'open') return;
+      // The series rail scrubs horizontally under the finger; it must not drag the drawer shut.
+      if ((event.target as Element).closest('.series-progress-rail')) return;
       this.pointerId = event.pointerId;
       this.start = { x: event.clientX, y: event.clientY };
       this.axis = null;
