@@ -1,11 +1,11 @@
 ---
 /**
- * SeriesProgress - 侧栏底部的系列进度：铺满宽度的分段条，每篇一段，读过的染粉，当前段上立着一片花瓣标记。
- * 悬停时附近的段随指针微微隆起，上方信息行就地换成目标文章的标题；触屏可沿进度条拖动预览、松手跳转。
+ * SeriesProgress - 侧栏底部的系列进度：一把刻度尺。每篇是一道主刻度（读过的染粉，当前篇是一颗珠子），
+ * 篇间补上细短的副刻度，让短系列和长系列的疏密一致。悬停时刻度随指针泛起波浪，上方信息行就地换成目标标题；
+ * 触屏可沿刻度拖动预览、松手跳转。
  */
 import { Routes } from '@constants/router';
 import { routeBuilder } from '@lib/route';
-import { PETAL_MASK } from '@lib/sakura/petal';
 import { railWindowStart } from '@lib/series-rail';
 import { Icon } from 'astro-icon/components';
 import { type Locale, localizedPath, t } from '@/i18n';
@@ -22,8 +22,8 @@ interface Props {
 
 /** Ticks shown at most; a longer series shows a window around the current post with faded ends. */
 const MAX_TICKS = 40;
-/** Gaps between segments narrow as the series grows, so a long one still reads as one bar. */
-const segmentGap = (count: number) => (count <= 10 ? 4 : count <= 20 ? 3 : count <= 30 ? 2 : 1);
+/** Minor ticks on each side of a post: a short series gets more, so the ruler's density stays even. */
+const minorsPerSide = (count: number) => (count <= 3 ? 3 : count <= 6 ? 2 : count <= 12 ? 1 : 0);
 
 const { posts, currentSlug, seriesName, locale, withScrollActions = false } = Astro.props;
 const current = posts.findIndex((post) => post.slug === currentSlug);
@@ -35,11 +35,12 @@ const start = railWindowStart(current, total, MAX_TICKS);
 const ticks = posts.slice(start, start + MAX_TICKS).map((post, offset) => ({ post, index: start + offset }));
 const href = (post: PostRef) => localizedPath(routeBuilder(Routes.Post, post), locale);
 const position = (index: number) => `${index + 1} / ${total}`;
+const minors = Array.from({ length: minorsPerSide(ticks.length) });
 ---
 
 {
   current >= 0 && total > 1 && (
-    <nav class="series-progress" aria-label={seriesName} style={`--petal-mask: ${PETAL_MASK}`}>
+    <nav class="series-progress" aria-label={seriesName}>
       <div class="series-progress-meta">
         <div class="series-progress-default">
           <span class="series-progress-name">{seriesName}</span>
@@ -69,7 +70,7 @@ const position = (index: number) => `${index + 1} / ${total}`;
         )}
         <ol
           class="series-progress-rail"
-          style={`--tick-count: ${ticks.length}; --tick-gap: ${segmentGap(ticks.length)}px`}
+          style={`--tick-count: ${ticks.length}`}
           data-clipped-start={start > 0 || undefined}
           data-clipped-end={start + ticks.length < total || undefined}
         >
@@ -83,7 +84,11 @@ const position = (index: number) => `${index + 1} / ${total}`;
                 data-read={index < current || undefined}
                 aria-current={index === current ? 'page' : undefined}
                 aria-label={`${position(index)} ${post.title}`}
-              />
+              >
+                {minors.map(() => <span class="series-progress-mark" data-minor aria-hidden="true" />)}
+                <span class="series-progress-mark series-progress-major" aria-hidden="true" />
+                {minors.map(() => <span class="series-progress-mark" data-minor aria-hidden="true" />)}
+              </a>
             </li>
           ))}
         </ol>
@@ -143,18 +148,31 @@ const position = (index: number) => `${index + 1} / ${total}`;
   }
 
   // ── Magnification wave ─────────────────────────────────────
+  // Post centres (for scrubbing) and mark centres (for the wave, minor ticks included) are cached per hover.
   let railCenters = new WeakMap<HTMLElement, number[]>();
+  let markCenters = new WeakMap<HTMLElement, number[]>();
   let frame = 0;
   let pending: { rail: HTMLElement; x: number } | null = null;
+
+  const centerX = (element: Element) => {
+    const box = element.getBoundingClientRect();
+    return box.left + box.width / 2;
+  };
 
   function centersOf(rail: HTMLElement): number[] {
     let centers = railCenters.get(rail);
     if (!centers) {
-      centers = [...rail.querySelectorAll('.series-progress-tick')].map((tick) => {
-        const box = tick.getBoundingClientRect();
-        return box.left + box.width / 2;
-      });
+      centers = [...rail.querySelectorAll('.series-progress-tick')].map(centerX);
       railCenters.set(rail, centers);
+    }
+    return centers;
+  }
+
+  function marksOf(rail: HTMLElement): number[] {
+    let centers = markCenters.get(rail);
+    if (!centers) {
+      centers = [...rail.querySelectorAll('.series-progress-mark')].map(centerX);
+      markCenters.set(rail, centers);
     }
     return centers;
   }
@@ -163,12 +181,12 @@ const position = (index: number) => `${index + 1} / ${total}`;
     frame = 0;
     if (!pending) return;
     const { rail, x } = pending;
-    const centers = centersOf(rail);
-    // Sparse ticks widen the wave so neighbours still answer; dense ones keep it tight.
+    const centers = marksOf(rail);
+    // Sparse marks widen the wave so neighbours still answer; dense ones keep it tight.
     const pitch = centers.length > 1 ? (centers[centers.length - 1] - centers[0]) / (centers.length - 1) : 0;
     const sigma = Math.max(RAIL_WAVE_SIGMA, pitch * 0.85);
-    rail.querySelectorAll<HTMLElement>('.series-progress-tick').forEach((tick, i) => {
-      tick.style.setProperty('--wave', railWaveScale(x - centers[i], sigma).toFixed(3));
+    rail.querySelectorAll<HTMLElement>('.series-progress-mark').forEach((mark, i) => {
+      mark.style.setProperty('--wave', railWaveScale(x - centers[i], sigma).toFixed(3));
     });
   }
 
@@ -180,8 +198,9 @@ const position = (index: number) => `${index + 1} / ${total}`;
 
   function calm(rail: HTMLElement) {
     pending = null;
-    for (const tick of rail.querySelectorAll<HTMLElement>('.series-progress-tick')) tick.style.removeProperty('--wave');
+    for (const mark of rail.querySelectorAll<HTMLElement>('.series-progress-mark')) mark.style.removeProperty('--wave');
     railCenters.delete(rail);
+    markCenters.delete(rail);
   }
 
   document.addEventListener('pointerover', (event) => {
@@ -260,6 +279,7 @@ const position = (index: number) => `${index + 1} / ${total}`;
 
   document.addEventListener('astro:after-swap', () => {
     railCenters = new WeakMap();
+    markCenters = new WeakMap();
   });
 
   document.addEventListener('click', (event) => {

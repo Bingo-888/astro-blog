@@ -597,17 +597,27 @@ span.series-progress-arrow {
 }
 
 /*
-  A segmented bar spans the track whatever the series length: one segment per post, read ones dyed,
-  the current one carrying a petal. Each segment owns its slice of the bar at full height, so the
-  pointer always targets the nearest post.
+  A ruler: each post is a major tick in its own slice of the track (full height, so the pointer always
+  targets the nearest post), and short series fill the gaps with fine minor ticks so the ruler reads
+  equally dense at 3 posts or 40. The read stretch of the ruler is dyed, minors included.
 */
 .series-progress-rail {
   position: relative;
   display: flex;
   flex: 1;
   min-width: 0;
-  gap: var(--tick-gap, 3px);
   height: 2.25rem;
+}
+
+.series-progress-rail::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline: 0;
+  height: 1px;
+  background: hsl(var(--primary) / 0.16);
+  translate: 0 -50%;
+  pointer-events: none;
 }
 
 /* A windowed long series fades out at the clipped end(s): the series continues past what is shown. */
@@ -637,56 +647,56 @@ span.series-progress-arrow {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* --wave (1 at rest → 2.6 under the pointer) gently swells the segments near the pointer. */
 .series-progress-tick {
-  position: relative;
+  justify-content: space-evenly;
 }
 
-.series-progress-tick::before {
-  content: "";
-  flex: 1;
-  height: 4px;
-  border-radius: 9999px;
-  background: hsl(var(--foreground) / 0.13);
-  scale: 1 calc(1 + (var(--wave, 1) - 1) * 0.45);
+/* --wave (1 at rest → 2.6 under the pointer) is written per mark by the script: the ruler ripples. */
+.series-progress-mark {
+  position: relative;
+  flex-shrink: 0;
+  width: 1px;
+  height: 0.375rem;
+  border-radius: 1px;
+  background: hsl(var(--foreground) / 0.14);
+  scale: 1 var(--wave, 1);
   transition:
     scale 220ms var(--ease-out-quart),
     background-color 160ms var(--ease-out-quart);
-}
-
-.series-progress-tick[data-read]::before {
-  background: hsl(var(--primary) / 0.5);
-}
-
-.series-progress-tick[aria-current="page"]::before {
-  background: hsl(var(--primary));
-}
-
-.series-progress-tick[data-targeted]:not([aria-current])::before {
-  background: hsl(var(--primary) / 0.85);
-}
-
-/* "You are here": the TOC's petal stands over the current segment. */
-.series-progress-tick[aria-current="page"]::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0.6875rem;
-  height: 0.825rem;
-  margin: calc(-0.825rem - 4px) 0 0 -0.34375rem;
-  background: linear-gradient(#ffc5d4, #ef7396);
-  mask: var(--petal-mask) center / contain no-repeat;
-  filter: drop-shadow(0 0 2px hsl(var(--primary) / 0.5));
-  rotate: -14deg;
   pointer-events: none;
 }
 
-.dark .series-progress-tick[aria-current="page"]::after {
-  background: linear-gradient(#ffe0e9, #f7879f);
+.series-progress-major {
+  width: 2px;
+  height: 0.75rem;
+  background: hsl(var(--foreground) / 0.34);
 }
 
-html:is([data-motion="reduced"], .motion-off) .series-progress-tick::before {
+.series-progress-tick[data-read] .series-progress-mark {
+  background: hsl(var(--primary) / 0.25);
+}
+
+.series-progress-tick[data-read] .series-progress-major {
+  background: hsl(var(--primary) / 0.65);
+}
+
+/* This post: the ruler's bead, its "you are here". */
+.series-progress-tick[aria-current="page"] .series-progress-major {
+  width: 0.5625rem;
+  height: 0.5625rem;
+  border-radius: 9999px;
+  background: hsl(var(--primary));
+  box-shadow:
+    0 0 0 3px var(--sider-surface),
+    0 0 0 4.5px hsl(var(--primary) / 0.3);
+  scale: calc(1 + (var(--wave, 1) - 1) * 0.2);
+}
+
+.series-progress-tick[data-targeted]:not([aria-current]) .series-progress-major {
+  background: hsl(var(--primary));
+}
+
+html:is([data-motion="reduced"], .motion-off) .series-progress-mark {
   scale: none;
   transition: background-color 160ms;
 }
