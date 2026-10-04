@@ -111,6 +111,65 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
     '[data-home-profile] > *, [data-home-nav] > *, .toc-container > :not([data-toc-rail]), [data-series-list] > *';
   const CASCADE_SPREAD_MS = 180;
 
+  /** The header's own show/hide transitions (header.css); the sider rides along on the same curve. */
+  const HEADER_REVEAL: KeyframeAnimationOptions = { duration: 480, easing: EASE_OUT_EXPO };
+  const HEADER_HIDE: KeyframeAnimationOptions = { duration: 260, easing: EASE_IN_QUART };
+
+  function translateY(element: HTMLElement): number {
+    const [, y = '0'] = getComputedStyle(element).translate.split(' ');
+    return Number.parseFloat(y) || 0;
+  }
+
+  /**
+   * Moves the desktop sider together with the header as it hides and reveals. The sticky offset
+   * switches at once and a compositor-only translate plays the difference with the header's own
+   * timing (FLIP), so the column never lags the header or relays out every frame.
+   */
+  function followHeader(sider: HTMLElement): () => void {
+    const header = document.getElementById('site-header');
+    if (!header) return () => {};
+    let hidden = header.classList.contains('-translate-y-full');
+    let lastTop = Number.parseFloat(getComputedStyle(sider).top) || 0;
+    let animation: Animation | null = null;
+
+    const settle = () => {
+      animation?.cancel();
+      animation = null;
+      sider.style.translate = '';
+    };
+
+    const observer = new MutationObserver(() => {
+      const nowHidden = header.classList.contains('-translate-y-full');
+      if (nowHidden === hidden) return;
+      hidden = nowHidden;
+      const carried = animation ? translateY(sider) : 0;
+      settle();
+      const nextTop = Number.parseFloat(getComputedStyle(sider).top) || 0;
+      if (readMotionLevel() === 'reduced' || nextTop === lastTop) {
+        lastTop = nextTop;
+        return;
+      }
+      sider.style.top = `${lastTop}px`;
+      const before = sider.getBoundingClientRect().top;
+      sider.style.top = '';
+      const delta = before - sider.getBoundingClientRect().top + carried;
+      lastTop = nextTop;
+      if (Math.abs(delta) < 0.5) return;
+      // The inline start holds the old position through the frame a new animation can spend pending.
+      sider.style.translate = `0 ${delta}px`;
+      animation = sider.animate([{ translate: `0 ${delta}px` }, { translate: '0 0' }], {
+        ...(nowHidden ? HEADER_HIDE : HEADER_REVEAL),
+        fill: 'forwards',
+      });
+      animation.onfinish = settle;
+    });
+    observer.observe(header, { attributes: true, attributeFilter: ['class'] });
+    return () => {
+      observer.disconnect();
+      settle();
+    };
+  }
+
   type Frame = { opacity: string; translate: string };
 
   function frameOf(element: HTMLElement): Frame {
@@ -131,8 +190,12 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
     private rowAnimations = new Set<Animation>();
     private unsubscribe: (() => void) | null = null;
     private unsubscribeMotion: (() => void) | null = null;
+    private stopFollowing: (() => void) | null = null;
 
     connectedCallback() {
+      const sider = this.closest<HTMLElement>('.page-home-sider');
+      this.stopFollowing?.();
+      this.stopFollowing = sider ? followHeader(sider) : null;
       for (const type of PANEL_ORDER) {
         const panel = this.querySelector<HTMLElement>(`[data-slot-type="${type}"]`);
         if (panel) this.panels.set(type, panel);
@@ -155,6 +218,8 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
     }
 
     disconnectedCallback() {
+      this.stopFollowing?.();
+      this.stopFollowing = null;
       this.unsubscribe?.();
       this.unsubscribe = null;
       this.unsubscribeMotion?.();
@@ -269,15 +334,13 @@ const nextPost = adjacentPosts.nextPost ? toPostRef(adjacentPosts.nextPost) : nu
   /*
    * 页头可见时（未隐藏）侧栏吸顶偏移到页头下方，避免 sticky 内容与固定页头重叠。
    * 页头随下滚隐藏（-translate-y-full）后恢复 top-0，保持原有吸顶状态。
+   * 偏移本身瞬间切换，移动动画由脚本里的 followHeader 用 translate 补间，与页头同曲线同时长。
    * 仅桌面宽度生效（>992px）：移动端抽屉内的 sider 不适用。
    */
   .page-home-sider {
     --sider-top: 0rem;
     top: var(--sider-top);
     height: calc(100vh - var(--sider-top));
-    transition:
-      top 480ms var(--ease-out-expo),
-      height 480ms var(--ease-out-expo);
   }
 
   @media (width > 992px) {
