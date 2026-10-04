@@ -246,6 +246,11 @@ html:is([data-motion="reduced"], .motion-off) .home-greeting {
   }
 }
 
+/* Without a segmented control above it (non-post pages), the profile keeps its distance from the drawer head. */
+.drawer-sider sider-content[data-type="home"] .home-info {
+  padding-top: 0.75rem;
+}
+
 /* Drawer: the halo reaches 4.5px past the avatar; inset it so its outer edge lines up with the content. */
 .home-info[data-variant="drawer"] .home-avatar {
   margin-inline-start: 4.5px;
@@ -737,7 +742,7 @@ html:is([data-motion="reduced"], .motion-off) .series-progress-mark {
   background: hsl(var(--primary) / 0.12);
 }
 
-:is(.series-progress-arrow, .series-progress-tick, .series-progress-action):focus-visible {
+:is(.series-progress-arrow, .series-progress-tick):focus-visible {
   outline-offset: -2px;
 }
 
@@ -749,7 +754,7 @@ html:is([data-motion="reduced"], .motion-off) :is(.series-progress-default, .ser
   translate: none;
 }
 
-/* Drawer: thumb-sized arrows and a taller rail to scrub along, plus the floating group's scroll actions. */
+/* Drawer: thumb-sized arrows and a taller rail to scrub along. */
 .drawer-sider .series-progress-arrow {
   width: 2.75rem;
   height: 2.75rem;
@@ -762,34 +767,6 @@ html:is([data-motion="reduced"], .motion-off) :is(.series-progress-default, .ser
 /* The chevron glyphs sit ~1.0625rem inside their 2.75rem buttons; the meta line starts where they do. */
 .drawer-sider .series-progress-meta {
   padding-inline: 1.0625rem;
-}
-
-.series-progress-actions {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.25rem;
-  margin-top: 0.25rem;
-}
-
-.series-progress-action {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  min-height: 2.75rem;
-  border-radius: 0.75rem;
-  color: hsl(var(--muted-foreground));
-  font-size: 0.75rem;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background-color 200ms var(--ease-out-quart),
-    scale 200ms var(--ease-out-quart);
-}
-
-.series-progress-action:active {
-  scale: 0.97;
-  background: hsl(var(--foreground) / 0.06);
-  transition-duration: 80ms;
 }
 
 /* ── Series posts (SeriesPostList.tsx): one thread, a bead per post ── */

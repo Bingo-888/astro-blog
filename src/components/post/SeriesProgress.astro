@@ -16,8 +16,6 @@ interface Props {
   currentSlug: string;
   seriesName: string;
   locale: Locale;
-  /** The drawer adds back-to-top / scroll-to-bottom, which the hidden floating group provides elsewhere. */
-  withScrollActions?: boolean;
 }
 
 /** Ticks shown at most; a longer series shows a window around the current post with faded ends. */
@@ -25,7 +23,7 @@ const MAX_TICKS = 40;
 /** Minor ticks on each side of a post: a short series gets more, so the ruler's density stays even. */
 const minorsPerSide = (count: number) => (count <= 3 ? 3 : count <= 6 ? 2 : count <= 12 ? 1 : 0);
 
-const { posts, currentSlug, seriesName, locale, withScrollActions = false } = Astro.props;
+const { posts, currentSlug, seriesName, locale } = Astro.props;
 const current = posts.findIndex((post) => post.slug === currentSlug);
 const prev = current > 0 ? posts[current - 1] : null;
 const next = current >= 0 && current < posts.length - 1 ? posts[current + 1] : null;
@@ -109,24 +107,12 @@ const minors = Array.from({ length: minorsPerSide(ticks.length) });
           </span>
         )}
       </div>
-      {withScrollActions && (
-        <div class="series-progress-actions">
-          <button type="button" class="series-progress-action" data-scroll-to="top">
-            <Icon name="ri:arrow-up-s-line" class="size-4" />
-            {t(locale, 'floating.backToTop')}
-          </button>
-          <button type="button" class="series-progress-action" data-scroll-to="bottom">
-            <Icon name="ri:arrow-down-s-line" class="size-4" />
-            {t(locale, 'floating.scrollToBottom')}
-          </button>
-        </div>
-      )}
     </nav>
   )
 }
 
 <script>
-  import { getScrollBehavior, readMotionLevel } from '@lib/motion-level';
+  import { readMotionLevel } from '@lib/motion-level';
   import { nearestTick, RAIL_WAVE_SIGMA, railWaveScale } from '@lib/series-rail';
   import { navigate } from 'astro:transitions/client';
 
@@ -282,10 +268,4 @@ const minors = Array.from({ length: minorsPerSide(ticks.length) });
     markCenters = new WeakMap();
   });
 
-  document.addEventListener('click', (event) => {
-    const button = (event.target as Element | null)?.closest?.<HTMLElement>('[data-scroll-to]');
-    if (!button) return;
-    const top = button.dataset.scrollTo === 'bottom' ? document.documentElement.scrollHeight : 0;
-    window.scrollTo({ top, behavior: getScrollBehavior() });
-  });
 </script>

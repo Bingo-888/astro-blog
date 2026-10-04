@@ -42,7 +42,7 @@ const seriesName = post && type === HomeSiderType.POST ? translateCategoryName(g
 >
   {
     type === HomeSiderType.POST && (
-      <div data-sider-segmented class={isDrawer ? 'shrink-0 pb-3' : 'shrink-0 pt-3 pb-2'}>
+      <div data-sider-segmented class={isDrawer ? 'shrink-0 pt-2 pb-4' : 'shrink-0 pt-3 pb-2'}>
         <HomeSiderSegmented
           client:only="react"
           className="flex w-full justify-between text-sm/6"
@@ -91,7 +91,7 @@ const seriesName = post && type === HomeSiderType.POST ? translateCategoryName(g
 
   {
     type === HomeSiderType.POST && (
-      <SeriesProgress posts={seriesPosts} currentSlug={currentSlug} seriesName={seriesName} locale={locale} withScrollActions={isDrawer} />
+      <SeriesProgress posts={seriesPosts} currentSlug={currentSlug} seriesName={seriesName} locale={locale} />
     )
   }
 </div>
