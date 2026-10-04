@@ -137,6 +137,11 @@ export const uiStrings: UIStrings = {
   'diagram.download': '画像をダウンロード',
   'diagram.resize': '図のサイズを変更',
   'diagram.resizeHint': 'ドラッグでサイズ変更、ダブルクリックで元に戻す',
+  'diagram.renderError': '図を表示できませんでした',
+  'diagram.loadingSlow': '図の読み込みに時間がかかっています',
+  'diagram.errorHelp': 'ページを再読み込みするか、ツールバーから図のソースを表示・コピーできます。',
+  'diagram.errorHelpNoSource': 'ページを再読み込みしてお試しください。',
+  'diagram.reload': '再読み込み',
 
   // ── Lightboxでの画像表示 ──────────────────────────────────────────
   'image.preview': '画像プレビュー',
