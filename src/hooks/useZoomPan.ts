@@ -74,7 +74,9 @@ function isMouseWheel(e: WheelEvent): boolean {
   if (e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) return true;
   if (e.deltaX !== 0) return false;
   const legacy = (e as WheelEvent & { wheelDeltaY?: number }).wheelDeltaY;
-  return typeof legacy === 'number' && legacy !== 0 && legacy % 120 === 0 && legacy !== -3 * e.deltaY;
+  if (typeof legacy === 'number' && legacy !== 0) return legacy % 120 === 0 && legacy !== -3 * e.deltaY;
+  // Firefox has no wheelDeltaY: a notch arrives as one large whole-pixel step, a trackpad as small fractional ones.
+  return Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 40;
 }
 
 export function useZoomPan(enabled = true): UseZoomPanReturn {
@@ -307,6 +309,11 @@ export function useZoomPan(enabled = true): UseZoomPanReturn {
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (pointers.size >= 2) {
+        // Two pointers starting on the same pixel have no spread to scale against yet.
+        if (gesture.distance <= 0) {
+          gesture.distance = spread();
+          return;
+        }
         const mid = toLocal(centroid().x, centroid().y);
         const s = softClampScale(gesture.start.scale * (spread() / gesture.distance));
         const zoomed = zoomAround(gesture.start, s, gesture.origin.x, gesture.origin.y);

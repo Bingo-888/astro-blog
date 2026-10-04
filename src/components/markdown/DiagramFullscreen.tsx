@@ -63,31 +63,32 @@ export default function DiagramFullscreen() {
   return (
     <ModalLayer open={isOpen} onClose={closeModal}>
       <DiagramToolbar data={data} controls={controls} content={content} />
-      <div
-        ref={viewportRef}
-        role="img"
-        aria-label={data.diagramType}
-        className={cn(
-          'diagram-viewport relative flex min-h-0 flex-1 touch-none select-none items-center justify-center overflow-hidden',
-          isZoomed ? 'cursor-grab data-dragging:cursor-grabbing' : 'cursor-zoom-in',
-          data.diagramType === 'infographic' && 'infographic-container',
-        )}
-        onDoubleClick={(e) => (isZoomed ? reset() : zoomBy(2, e.clientX, e.clientY))}
-      >
+      {/* The pill and hint sit beside the canvas, not in it: role="img" hides its children from assistive tech. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
         <div
-          ref={setContent}
+          ref={viewportRef}
+          role="img"
+          aria-label={data.diagramType}
           className={cn(
-            'flex size-full origin-center items-center justify-center',
-            data.diagramType === 'mermaid' ? 'mermaid-svg-container' : 'infographic-svg-container',
+            'diagram-viewport flex min-h-0 flex-1 touch-none select-none items-center justify-center bg-(--code-surface)',
+            isZoomed ? 'cursor-grab data-dragging:cursor-grabbing' : 'cursor-zoom-in',
+            data.diagramType === 'infographic' && 'infographic-container',
           )}
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG from mermaid/infographic render output
-          dangerouslySetInnerHTML={{ __html: data.svg }}
-        />
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: only stops double-taps on the buttons from zooming the canvas */}
-        <div
-          className="absolute inset-x-0 bottom-3 tablet:flex hidden justify-center"
-          onDoubleClick={(e) => e.stopPropagation()}
+          // Inline so it beats the unlayered `.infographic-container { overflow: auto }` the viewer reuses.
+          style={{ overflow: 'hidden' }}
+          onDoubleClick={(e) => (isZoomed ? reset() : zoomBy(2, e.clientX, e.clientY))}
         >
+          <div
+            ref={setContent}
+            className={cn(
+              'flex size-full origin-center items-center justify-center',
+              data.diagramType === 'mermaid' ? 'mermaid-svg-container' : 'infographic-svg-container',
+            )}
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG from mermaid/infographic render output
+            dangerouslySetInnerHTML={{ __html: data.svg }}
+          />
+        </div>
+        <div className="absolute inset-x-0 bottom-3 tablet:flex hidden justify-center">
           <ZoomGroup
             controls={controls}
             className="bg-(--code-toolbar)/90 shadow-lg ring-(--code-border) ring-1 backdrop-blur-md"
@@ -108,9 +109,9 @@ function useActualScale(content: HTMLElement | null, shown: DiagramFullscreenDat
     const measure = () => {
       const svg = content.querySelector('svg');
       const natural = svg && getNaturalSize(svg);
-      // The SVG's on-screen width includes the current zoom; divide it out to get the fitted width.
-      const fitted = svg?.getBoundingClientRect().width;
-      const scale = natural && fitted ? natural.width / (fitted / currentScale(content)) : 1;
+      // Layout width, not the client rect: it ignores both the zoom transform and the panel's entrance scale.
+      const fitted = svg?.clientWidth;
+      const scale = natural && fitted ? natural.width / fitted : 1;
       setActualScale(scale > 1.05 ? Math.min(MAX_SCALE, scale) : null);
     };
     measure();
@@ -119,11 +120,6 @@ function useActualScale(content: HTMLElement | null, shown: DiagramFullscreenDat
   }, [content, shown]);
 
   return actualScale;
-}
-
-function currentScale(content: HTMLElement): number {
-  const match = /scale\(([\d.]+)\)/.exec(content.style.transform);
-  return match ? Number(match[1]) : 1;
 }
 
 function DiagramToolbar({

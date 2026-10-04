@@ -7,6 +7,7 @@
  */
 
 const VAR_PATTERN = /var\((--[\w-]+)\)/g;
+const MAX_CANVAS_AREA = 16_000_000;
 
 /** Natural (designed) size of a diagram, from its viewBox. */
 export function getNaturalSize(svg: SVGSVGElement): { width: number; height: number } | null {
@@ -71,7 +72,8 @@ export async function downloadDiagram(svg: SVGSVGElement, basename: string, back
     image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
     await image.decode();
 
-    const ratio = 2;
+    // 2× for sharpness, but stay under Safari's ~16.7 Mpx canvas limit, past which it exports a blank image.
+    const ratio = Math.min(2, Math.sqrt(MAX_CANVAS_AREA / (width * height)));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round(height * ratio);

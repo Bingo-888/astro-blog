@@ -12,7 +12,7 @@ const ACCENT_FILL = 'hsl(var(--primary) / 0.08)';
 const ACCENT_STROKE = 'hsl(var(--primary) / 0.55)';
 const LINE = 'hsl(var(--muted-foreground) / 0.75)';
 const TEXT = 'hsl(var(--foreground))';
-const SURFACE = 'hsl(var(--card))';
+const SURFACE = 'var(--code-surface)';
 
 export const mermaidThemeCSS = `
   .node rect, .node circle, .node ellipse, .node polygon, .node path,

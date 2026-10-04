@@ -524,7 +524,8 @@
 
 .dark {
   --code-surface: color-mix(in oklab, hsl(var(--card)) 80%, #000);
-  --code-toolbar: color-mix(in oklab, hsl(var(--card)) 94%, hsl(var(--foreground)));
+  /* Lifted with the accent, not white: a white mix reads as cool grey against the night-sakura plum. */
+  --code-toolbar: color-mix(in oklab, color-mix(in oklab, hsl(var(--card)) 88%, #000) 93%, hsl(var(--primary)));
   --code-border: hsl(var(--border) / 0.9);
 }
 

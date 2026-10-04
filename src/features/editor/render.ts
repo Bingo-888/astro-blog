@@ -25,6 +25,7 @@ import { remarkShokaRuby } from '../../lib/markdown/remark-shoka-ruby';
 import { remarkShokaSpoiler } from '../../lib/markdown/remark-shoka-spoiler';
 import { collapsibleCodeTransformer } from '../../lib/markdown/shiki-collapsible-transformer';
 import { shokaMetaTransformer } from '../../lib/markdown/shiki-meta-transformer';
+import { SHIKI_THEMES } from '../../lib/markdown/shiki-themes';
 import { escapeHtml } from '../../lib/markdown/shoka-renderers';
 import { encryptEditorContent } from './crypto';
 
@@ -141,7 +142,7 @@ async function highlightCode(tree: HastRoot, options: EditorRenderOptions) {
     }
   });
   if (blocks.length === 0) return;
-  highlighterPromise ??= createHighlighter({ themes: ['github-light', 'github-dark'], langs: [] });
+  highlighterPromise ??= createHighlighter({ themes: [SHIKI_THEMES.light, SHIKI_THEMES.dark], langs: [] });
   const highlighter = await highlighterPromise;
   for (const { node, parent } of blocks) {
     const code = node.children.find((child): child is Element => child.type === 'element' && child.tagName === 'code');
@@ -176,7 +177,7 @@ async function highlightCode(tree: HastRoot, options: EditorRenderOptions) {
     }
     const highlighted = highlighter.codeToHast(source, {
       lang: highlightLanguage,
-      themes: { light: 'github-light', dark: 'github-dark' },
+      themes: SHIKI_THEMES,
       meta: { __raw: meta },
       transformers: [
         ...(config.enableCodeMeta ? [shokaMetaTransformer()] : []),
