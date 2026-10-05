@@ -25,7 +25,11 @@
 @import "./components/segmented.css";
 @import "./components/drawer.css";
 @import "./components/sider.css";
-@import "./components/category.css";
+@import "./components/index-pages.css";
+@import "./components/index-archives.css";
+@import "./components/category-toc.css";
+@import "./components/tag-cloud.css";
+@import "./components/bangumi.css";
 @import "./components/post.css";
 @import "./components/toc.css";
 @import "./components/pagefind.css";

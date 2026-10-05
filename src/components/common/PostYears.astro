@@ -1,0 +1,33 @@
+---
+import SakuraSVG from '@components/svg/SakuraSvg';
+import { siteTimezone } from '@lib/config/site';
+import { groupPostsByYear } from '@lib/content/index-groups';
+import { PETAL_MASK } from '@lib/sakura/petal';
+import { formatInTimeZone } from 'date-fns-tz';
+import type { BlogPost } from 'types/blog';
+import { t } from '@/i18n';
+import PostRow from './PostRow.astro';
+
+interface Props {
+  posts: BlogPost[];
+  locale: string;
+  showCategory?: boolean;
+  /** Archive mode: larger year rules, and `#year-YYYY` / `#month-YYYY-MM` anchors for the calendar. */
+  anchors?: boolean;
+}
+const { posts, locale, showCategory = true, anchors = false } = Astro.props;
+const groups = groupPostsByYear(posts, siteTimezone);
+const monthKey = (post: BlogPost) => formatInTimeZone(post.data.date, siteTimezone, 'yyyy-MM');
+---
+{groups.length ? <div class:list={['post-years', anchors && 'post-years-archive']} style={{ '--petal-mask': PETAL_MASK }}>
+  {groups.map(({ year, posts: yearPosts }) => <section class="motion-reveal" id={anchors ? `year-${year}` : undefined} tabindex={anchors ? -1 : undefined}>
+    <h2 class="year-rule"><SakuraSVG className="year-rule-bloom" /><span>{year}</span><small>{t(locale, 'post.yearPosts', { count: yearPosts.length })}</small></h2>
+    <ol class="post-rows">
+      {yearPosts.map((post, index) => {
+        const key = monthKey(post);
+        const firstOfMonth = anchors && (index === 0 || monthKey(yearPosts[index - 1]) !== key);
+        return <PostRow post={post} locale={locale} showCategory={showCategory} id={firstOfMonth ? `month-${key}` : undefined} />;
+      })}
+    </ol>
+  </section>)}
+</div> : <p class="text-muted-foreground">{t(locale, 'post.noPostsFound')}</p>}
