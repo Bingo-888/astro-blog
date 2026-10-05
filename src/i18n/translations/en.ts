@@ -7,6 +7,23 @@
 import type { UIStrings } from '../types';
 
 export const uiStrings: UIStrings = {
+  // Index pages
+  'index.posts': 'posts',
+  'index.years': 'years',
+  'index.categories': 'categories',
+  'index.tags': 'tags',
+  'index.mostUsed': 'most used',
+  'category.filter': 'Subcategories',
+  'tag.filter': 'Filter tags',
+  'tag.filterPlaceholder': 'Enter a tag name',
+  'tag.noMatches': 'No matching tags',
+  'tag.singleTags': '{count} more tags used only once',
+  'archives.jumpToYear': 'Jump to {year}',
+  'archives.legendFew': 'Less',
+  'archives.legendMany': 'More',
+  'archives.calendar': 'Writing calendar',
+  'archives.monthLabel': '{year}, month {month} · {count} posts',
+
   // ── Navigation ──────────────────────────────────────────────
   'nav.home': 'Home',
   'nav.posts': 'Posts',
@@ -93,6 +110,9 @@ export const uiStrings: UIStrings = {
 
   // ── Friends ─────────────────────────────────────────────────
   'friends.title': 'Friends',
+  'friends.countUnit': 'friends',
+  'friends.emptyTitle': 'No friends yet',
+  'friends.emptyDesc': 'Share your site and become the first friend.',
   'friends.applyTitle': 'Apply for Friend Link',
   'friends.siteName': 'Site Name',
   'friends.siteUrl': 'Site URL',
@@ -437,6 +457,7 @@ export const uiStrings: UIStrings = {
   'moments.noResults': 'No matching Moments found',
   'moments.clearSearch': 'Clear search',
   'moments.updated': 'Updated',
+  'moments.messageActions': 'Message actions',
   'moments.permalink': 'Permalink',
   'moments.copyLink': 'Copy link',
   'moments.copyFailed': 'Copy failed. Copy the URL manually.',
