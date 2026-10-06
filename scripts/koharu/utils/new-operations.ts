@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { slugify } from 'transliteration';
 import YAML from 'yaml';
+import { normalizeFriendGroups } from '../../../src/lib/config/friends';
+import type { FriendGroup } from '../../../src/lib/config/types';
 import { BLOG_CONTENT_PATH, SITE_CONFIG_PATH } from '../constants/paths';
 import type { CategoryTreeItem, FriendData, PostData } from '../creators/types';
 
@@ -33,6 +35,12 @@ export async function loadSiteConfig(): Promise<Record<string, unknown>> {
     throw new Error('Invalid site config format');
   }
   return parsed as Record<string, unknown>;
+}
+
+export async function getFriendGroups(): Promise<FriendGroup[]> {
+  const config = await loadSiteConfig();
+  const friends = config.friends as { groups?: unknown } | undefined;
+  return normalizeFriendGroups(friends?.groups);
 }
 
 /**
@@ -232,40 +240,64 @@ export async function createPost(data: PostData): Promise<string> {
 /**
  * Append a friend link to site.yaml while preserving comments and formatting
  */
-export async function appendFriend(data: FriendData): Promise<void> {
-  const content = await fs.promises.readFile(SITE_CONFIG_PATH, 'utf-8');
-  const doc = YAML.parseDocument(content);
+export async function appendFriend(data: FriendData, configPath = SITE_CONFIG_PATH): Promise<void> {
+  const content = await fs.promises.readFile(configPath, 'utf-8');
+  const doc = YAML.parseDocument(content, { keepSourceTokens: true });
+  if (doc.errors.length > 0) throw doc.errors[0];
 
   // Navigate to friends.data array
-  const friends = doc.get('friends') as YAML.YAMLMap | undefined;
-  if (!friends) {
+  const friends = doc.get('friends');
+  if (!YAML.isMap(friends)) {
     throw new Error('friends section not found in site.yaml');
   }
 
-  const dataArray = friends.get('data') as YAML.YAMLSeq | undefined;
-  if (!dataArray) {
+  const dataArray = friends.get('data');
+  if (!YAML.isSeq(dataArray) || !dataArray.range || !dataArray.srcToken) {
     throw new Error('friends.data array not found in site.yaml');
   }
 
+  const groups = normalizeFriendGroups(friends.toJSON().groups);
+  if (data.group && !groups.some((group) => group.id === data.group)) {
+    throw new Error(`Friend group "${data.group}" no longer exists. Choose a configured group or leave it ungrouped.`);
+  }
+
   // Create new friend entry
-  const newFriend = doc.createNode({
+  const newFriend = {
     site: data.site,
     url: data.url,
     owner: data.owner,
     desc: data.desc,
     image: data.image,
     ...(data.color ? { color: data.color } : {}),
-  });
+    ...(data.group ? { group: data.group } : {}),
+  };
 
-  // Add to array
-  dataArray.add(newFriend);
+  // Insert into the original source: serializing the whole document relocates comments and reformats unrelated settings.
+  const options = { lineWidth: 0, version: doc.directives.yaml.version };
+  const newline = content.includes('\r\n') ? '\r\n' : '\n';
+  let offset: number;
+  let insertion: string;
+  if (dataArray.flow) {
+    const last = dataArray.items.at(-1);
+    if (last && (!YAML.isNode(last) || !last.range)) throw new Error('Cannot locate the last friend entry.');
+    offset = YAML.isNode(last) && last.range ? last.range[1] : dataArray.range[0] + 1;
+    insertion = `${dataArray.items.length ? ', ' : ''}${YAML.stringify(newFriend, { ...options, collectionStyle: 'flow' }).trimEnd()}`;
+  } else {
+    if (dataArray.srcToken.type !== 'block-seq') throw new Error('Cannot locate the friend sequence.');
+    offset = dataArray.range[1];
+    const indent = ' '.repeat(dataArray.srcToken.indent);
+    insertion = YAML.stringify([newFriend], options)
+      .trimEnd()
+      .split('\n')
+      .map((line) => `${indent}${line}`)
+      .join(newline);
+    insertion = `${content.slice(0, offset).endsWith('\n') ? '' : newline}${insertion}${newline}`;
+  }
+  const output = content.slice(0, offset) + insertion + content.slice(offset);
+  const updated = YAML.parseDocument(output);
+  if (updated.errors.length > 0) throw updated.errors[0];
 
-  // Write back with preserved formatting
-  const output = doc.toString({
-    lineWidth: 0, // Don't wrap lines
-  });
-
-  await fs.promises.writeFile(SITE_CONFIG_PATH, output, 'utf-8');
+  await fs.promises.writeFile(configPath, output, 'utf-8');
 }
 
 /**

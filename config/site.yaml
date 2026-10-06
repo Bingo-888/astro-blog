@@ -211,9 +211,24 @@ social:
 #   - owner: 站长昵称
 #   - desc: 站点描述/简介
 #   - image: 头像图片 URL
-#   - color: (可选) 卡片背景色，十六进制格式
+#   - color: (可选) 主题色，十六进制格式；显示在头像外圈和悬停效果上
+#   - group: (可选) 所属分组的 id；未填写或找不到分组时归入「未分组」
+# groups: (可选) 友链分组，按配置顺序展示；不配置则为平铺列表
+#   - id: 分组标识，供友链的 group 引用（唯一）
+#   - title: 分组标题
+#   - description: (可选) 分组说明
 # -----------------------------------------------------------------------------
 friends:
+  groups:
+    - id: familiar
+      title: 熟人
+      description: 常有交流、彼此熟悉的朋友。
+    - id: community
+      title: 友链小伙伴
+      description: 通过博客结识、交换友链的小伙伴。
+    - id: following
+      title: 单向关注
+      description: 喜欢阅读、推荐给大家的博客。
   intro:
     title: 友情链接 # 页面标题
     subtitle: 欢迎交换友链！ # 页面副标题
@@ -226,31 +241,63 @@ friends:
         desc: 站点简介 # 站点简介
         image: https://your-blog.com/avatar.jpg # 头像链接
         color: "#ffc0cb" # 主题色（可选）
-  data: # 友链列表
+  data: # 友链列表；同组内按这里的顺序展示
     - site: 余弦の博客
       url: https://blog.cosine.ren
       owner: cos
       desc: FE / ACG / 手工 / 深色模式强迫症 / INFP / 兴趣广泛养两只猫的老宅女 / remote
       image: https://blog.cosine.ren/img/avatar.webp
       color: '#ed788b'
+      group: familiar
     - site: 示例博客 A
       url: https://example-a.com
       owner: Alice
       desc: 一个热爱技术的开发者
       image: https://api.dicebear.com/7.x/avataaars/svg?seed=Alice
       color: '#BEDCFF'
+      group: familiar
     - site: 示例博客 B
       url: https://example-b.com
       owner: Bob
       desc: 分享生活与技术的小站
       image: https://api.dicebear.com/7.x/avataaars/svg?seed=Bob
       color: '#FBC1CC'
+      group: community
     - site: 示例博客 C
       url: https://example-c.com
       owner: Carol
       desc: 记录学习与成长的地方
       image: https://api.dicebear.com/7.x/avataaars/svg?seed=Carol
       color: '#ABDCFF'
+      group: community
+    - site: 示例博客 D
+      url: https://example-d.com
+      owner: Dave
+      desc: 喜欢折腾键盘和终端
+      image: https://api.dicebear.com/7.x/avataaars/svg?seed=Dave
+      color: '#C8E6C9'
+      group: community
+    - site: 示例博客 E
+      url: https://example-e.com
+      owner: Eve
+      desc: 设计、插画与日常碎碎念
+      image: https://api.dicebear.com/7.x/avataaars/svg?seed=Eve
+      color: '#E1BEE7'
+      group: following
+    - site: 示例博客 F
+      url: https://example-f.com
+      owner: Frank
+      desc: 长文写作与阅读笔记
+      image: https://api.dicebear.com/7.x/avataaars/svg?seed=Frank
+      color: '#FFE0B2'
+      group: following
+    # 不写 group（或写了不存在的分组 id）的友链会归入最后的「未分组」
+    - site: 示例博客 G
+      url: https://example-g.com
+      owner: Grace
+      desc: 还没想好放在哪一组的新朋友
+      image: https://api.dicebear.com/7.x/avataaars/svg?seed=Grace
+      color: '#B2EBF2'
 
 # =============================================================================
 # Announcements
