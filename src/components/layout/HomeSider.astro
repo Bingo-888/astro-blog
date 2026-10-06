@@ -109,81 +109,6 @@ const seriesName = post && type === HomeSiderType.POST ? translateCategoryName(g
     '[data-home-profile] > *, [data-home-nav] > *, .toc-container > :not([data-toc-rail]), [data-series-list] > *';
   const CASCADE_SPREAD_MS = 180;
 
-  /** The header's own show/hide transitions (header.css); the sider rides along on the same curve. */
-  const HEADER_REVEAL: KeyframeAnimationOptions = { duration: 480, easing: EASE_OUT_EXPO };
-  const HEADER_HIDE: KeyframeAnimationOptions = { duration: 260, easing: EASE_IN_QUART };
-
-  function translateY(element: HTMLElement | null): number {
-    if (!element) return 0;
-    const [, y = '0'] = getComputedStyle(element).translate.split(' ');
-    return Number.parseFloat(y) || 0;
-  }
-
-  /**
-   * Moves the desktop sider with the header as it hides and reveals. The sticky offset and height
-   * switch at once; FLIP translates replay the move with the header's own timing. The column slides
-   * as one, the footer is counter-translated so it stays pinned to the viewport bottom, and when the
-   * scroller grows its new strip is clipped away until the column has arrived. Only transform and
-   * clip-path animate, so nothing relays out per frame.
-   */
-  function followHeader(sider: HTMLElement): () => void {
-    const header = document.getElementById('site-header');
-    if (!header) return () => {};
-    const footer = sider.querySelector<HTMLElement>(':scope > .series-progress');
-    const scroller = sider.querySelector<HTMLElement>('sider-content');
-    let hidden = header.classList.contains('-translate-y-full');
-    let lastTop = Number.parseFloat(getComputedStyle(sider).top) || 0;
-    let animations: Animation[] = [];
-
-    const settle = () => {
-      for (const animation of animations) animation.cancel();
-      animations = [];
-      sider.style.translate = '';
-      if (footer) footer.style.translate = '';
-      if (scroller) scroller.style.clipPath = '';
-    };
-
-    // Each part's start is also written inline: a new animation can spend a frame pending.
-    const play = (element: HTMLElement | null, property: 'translate' | 'clipPath', from: string, to: string, timing: KeyframeAnimationOptions) => {
-      if (!element) return;
-      element.style[property] = from;
-      const animation = element.animate([{ [property]: from }, { [property]: to }], { ...timing, fill: 'forwards' });
-      animations.push(animation);
-    };
-
-    const observer = new MutationObserver(() => {
-      const nowHidden = header.classList.contains('-translate-y-full');
-      if (nowHidden === hidden) return;
-      hidden = nowHidden;
-      const carried = animations.length ? translateY(sider) : 0;
-      const footerCarried = animations.length ? translateY(footer) : 0;
-      settle();
-      const nextTop = Number.parseFloat(getComputedStyle(sider).top) || 0;
-      if (readMotionLevel() === 'reduced' || nextTop === lastTop) {
-        lastTop = nextTop;
-        return;
-      }
-      sider.style.top = `${lastTop}px`;
-      const before = sider.getBoundingClientRect().top;
-      sider.style.top = '';
-      const delta = before - sider.getBoundingClientRect().top + carried;
-      lastTop = nextTop;
-      if (Math.abs(delta) < 0.5) return;
-
-      const timing = nowHidden ? HEADER_HIDE : HEADER_REVEAL;
-      play(sider, 'translate', `0 ${delta}px`, '0 0', timing);
-      // The column's bottom edge does not move when stuck, so the footer keeps its place on screen.
-      play(footer, 'translate', `0 ${carried + footerCarried - delta}px`, '0 0', timing);
-      if (delta > 0) play(scroller, 'clipPath', `inset(0 0 ${delta}px 0)`, 'inset(0 0 0px 0)', timing);
-      animations[0].onfinish = settle;
-    });
-    observer.observe(header, { attributes: true, attributeFilter: ['class'] });
-    return () => {
-      observer.disconnect();
-      settle();
-    };
-  }
-
   type Frame = { opacity: string; translate: string };
 
   function frameOf(element: HTMLElement): Frame {
@@ -204,12 +129,8 @@ const seriesName = post && type === HomeSiderType.POST ? translateCategoryName(g
     private rowAnimations = new Set<Animation>();
     private unsubscribe: (() => void) | null = null;
     private unsubscribeMotion: (() => void) | null = null;
-    private stopFollowing: (() => void) | null = null;
 
     connectedCallback() {
-      const sider = this.closest<HTMLElement>('.page-home-sider');
-      this.stopFollowing?.();
-      this.stopFollowing = sider ? followHeader(sider) : null;
       for (const type of PANEL_ORDER) {
         const panel = this.querySelector<HTMLElement>(`[data-slot-type="${type}"]`);
         if (panel) this.panels.set(type, panel);
@@ -232,8 +153,6 @@ const seriesName = post && type === HomeSiderType.POST ? translateCategoryName(g
     }
 
     disconnectedCallback() {
-      this.stopFollowing?.();
-      this.stopFollowing = null;
       this.unsubscribe?.();
       this.unsubscribe = null;
       this.unsubscribeMotion?.();
@@ -345,12 +264,7 @@ const seriesName = post && type === HomeSiderType.POST ? translateCategoryName(g
     z-index: 5;
   }
 
-  /*
-   * 页头可见时侧栏吸顶在页头下方，页头随下滚隐藏（-translate-y-full）后上提到视口顶部。
-   * 偏移本身瞬间切换，脚本里的 followHeader 用 translate/clip-path 补间：整列与页头同曲线移动，
-   * 底部系列进度反向抵消保持钉在视口底部，目录区高度的突变由裁剪遮住。
-   * 仅桌面宽度生效（>992px）：移动端抽屉内的 sider 不适用。
-   */
+  /* Keep the reading navigation stable while the header hides and reveals. */
   .page-home-sider {
     top: 0;
     height: 100vh;
@@ -360,11 +274,6 @@ const seriesName = post && type === HomeSiderType.POST ? translateCategoryName(g
     .page-home-sider {
       top: 4.25rem;
       height: calc(100vh - 4.25rem);
-    }
-
-    :global(body:has(#site-header.-translate-y-full)) .page-home-sider {
-      top: 0;
-      height: 100vh;
     }
   }
 
