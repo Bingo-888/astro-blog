@@ -7,6 +7,7 @@ import yamlConfig from '../../config/site.yaml';
 export type { FriendLink };
 
 export const friendsData: FriendLink[] = yamlConfig.friends?.data ?? [];
+export { friendGroups } from '@lib/config/site';
 
 export const friendsIntro: FriendsIntro = yamlConfig.friends?.intro ?? {
   title: 'Friends',
