@@ -40,3 +40,4 @@ backups/
 
 # WorkBuddy local data (project memory etc.)
 .workbuddy/
+.env*
