@@ -238,6 +238,13 @@ friends:
     #   image: https://example.com/avatar.jpg
     #   color: '#BEDCFF'
     #   group: familiar
+    - site: XFffff's Blog
+      url: https://blog.the37777777.top/
+      owner: XFffff
+      desc: 想法和Token一样多的vibe coder
+      image: https://blog.the37777777.top/static/images/logo.webp
+      color: '#BEDCFF'
+      group: familiar
 
 # =============================================================================
 # Announcements
