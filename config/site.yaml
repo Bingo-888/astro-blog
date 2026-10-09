@@ -19,7 +19,7 @@ site:
   avatar: /img/avatar.webp # 网站头像
   showLogo: false # 是否显示图形 Logo；默认显示站点名称，启用后可替换 src/assets/svg/logo.svg
   author: Bingo-888 # 作者名称
-  url: https://astro-blog-mocha-tau-83.vercel.app # 站点 URL 用于 RSS 和 SEO
+  url: https://blog.bingo888.top/ # 站点 URL 用于 RSS 和 SEO
   defaultOgImage: /img/avatar.webp # 默认 Open Graph 图片
   startYear: 2026 # 建站年份
   timezone: Asia/Shanghai # 时区配置 (IANA 格式)，用于日期显示和处理
