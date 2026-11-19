@@ -458,6 +458,16 @@ colophon:
       icon: ri:quill-pen-line
       label: 手写
       description: 每个字都是我自己敲的。
+    repost:
+      group: authorship
+      icon: ri:quill-pen-line
+      label: 转载
+      description: 转载自其他作者
+    repost-and-translate:
+      group: authorship
+      icon: ri:quill-pen-line
+      label: 转载并翻译
+      description: 转载自其他作者，并翻译为中文
     ai-cowrite:
       group: authorship
       icon: ri:sparkling-2-line
